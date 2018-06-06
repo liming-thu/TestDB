@@ -10,9 +10,9 @@ stop_words=set(stopwords.words("english"))
 stop_words=stop_words.union({u'http', u'https' ,u'www' ,u'_',u'.',u'/','?',';','<','>',':','"','[',']','{','}','!','~','`','@','#','$','%','^','&','*','(',')','-','+','=','\\','|'})
 porter=nltk.PorterStemmer()
 i=0
-for f in listdir('../VasPP/split/'):
-    file=open('../VasPP/split/'+f)
-    wc=open('wc/'+f,'aw+')
+for f in listdir('text'):
+    file=open('text/'+f)
+    wc=open('text/'+f,'aw+')
     dict=OrderedDict()
     ln=file.readline()
     while ln:
@@ -30,6 +30,6 @@ for f in listdir('../VasPP/split/'):
         if i%10000==0:
             print f,i
     for w in dict:
-       wc.write(w+" "+str(dict[w])+'\n')
+       wc.write(w+","+str(dict[w])+'\n')
     file.close()
     wc.close()
