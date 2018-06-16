@@ -13,7 +13,7 @@ x1=70.0
 
 y0=-170.0
 y1=-60.0
-
+conStr="dbname='postgres' user='postgres' host='169.234.1.56' password='liming' "
 def imageHashFromCoordinates(coord):
     pixel_x=(x1-x0)/res_x
     pixel_y=(y1-y0)/res_y
@@ -116,7 +116,7 @@ def DrawImage(matrix,fn):
     plt.savefig(fn,bbox_inches='tight',dpi=350)
     plt.close()
 def GetCoordinate(tb,keyword,limit):
-    conn=psycopg2.connect("dbname='postgres' user='postgres' host='169.234.12.225' password='liming' ")
+    conn=psycopg2.connect(conStr)
     cur=conn.cursor()
     sql="select coordinate[0],coordinate[1] from "+tb+" where to_tsvector('english',text)@@to_tsquery('english','"+keyword+"')"
     if limit>0:
@@ -124,7 +124,7 @@ def GetCoordinate(tb,keyword,limit):
     cur.execute(sql)
     return cur.fetchall()
 def GetKeywords(tb,lower,upper):
-    conn=psycopg2.connect("dbname='postgres' user='postgres' host='169.234.12.225' password='liming' ")
+    conn=psycopg2.connect(conStr)
     cur=conn.cursor()
     sql="select vector,count from "+tb+" where count>="+str(lower)+" and count<"+str(upper)#+" and vector not in (select distinct keyword from keyword_k_q) order by count"
     cur.execute(sql)
@@ -133,7 +133,7 @@ def GetKeywords(tb,lower,upper):
 def main(s,e):
     start=int(s)
     end=int(e)
-    conn=psycopg2.connect("dbname='postgres' user='postgres' host='169.234.12.225' password='liming' ")
+    conn=psycopg2.connect(conStr)
     cur=conn.cursor()
     keywords=GetKeywords('vectorcount',start,end)
     if len(keywords) > 0:
@@ -166,7 +166,7 @@ def main(s,e):
 def myPerceptualHash(s,e):
     start=int(s)
     end=int(e)
-    conn=psycopg2.connect("dbname='postgres' user='postgres' host='169.234.12.225' password='liming' ")
+    conn=psycopg2.connect(conStr)
     cur=conn.cursor()
     keywords=GetKeywords('vectorcount',start,end)
     if len(keywords) > 0:
@@ -181,7 +181,7 @@ def myPerceptualHash(s,e):
             prevK=0
             deltaImage={}
             prevImage={}
-            for i in [1,2,3,5,10,15,20,25,30,35,40,45,50,60,70,80,90]:
+            for i in range(70,100):
                 curK=i*keyword[1]/100
                 deltaCoord=coord[prevK:curK]
                 deltaImage=deltaImageHashFromCoordinates(deltaCoord,prevImage)
@@ -189,9 +189,10 @@ def myPerceptualHash(s,e):
                 for key in deltaImage.keys():
                     prevImage[key]=1
                 prevK=curK
+                sql="insert into keyword_r_q values('"+keyword[0]+"',"+str(i)+","
             t2=time.time()
             print keyword[0],t2-t1
 
 # main(sys.argv[1],sys.argv[2])
-myPerceptualHash(5000,4000000)
+myPerceptualHash(56000,81000)
 # main(5000,4000000)
