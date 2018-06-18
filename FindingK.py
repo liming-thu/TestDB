@@ -185,15 +185,15 @@ def myPerceptualHash(s,e):
                 curK=i*keyword[1]/100
                 deltaCoord=coord[prevK:curK]
                 deltaImage=deltaImageHashFromCoordinates(deltaCoord,prevImage)
-                print i,float(len(prevImage)+len(deltaImage))/perfectLen
+                similarity=float(len(prevImage)+len(deltaImage))/perfectLen
                 for key in deltaImage.keys():
                     prevImage[key]=1
                 prevK=curK
-                similarity=float(len(prevImage))/perfectLen
                 sql = "insert into keyword_r_q values('" + keyword[0] + "'," + str(i) + "," + str(
                     similarity) + ",'70-100')"
                 cur.execute(sql)
                 cur.execute("commit")
+                print keyword[0],i,similarity
             t2=time.time()
             print keyword[0],t2-t1
 
