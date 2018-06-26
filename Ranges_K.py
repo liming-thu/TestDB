@@ -31,5 +31,4 @@ def main():
         ret=FindingKofQ(keyword[0])
         if ret!=False:
             print keyword[0],keyword[1],FindingKofQ(keyword[0]),float(FindingKofQ(keyword[0]))/keyword[1]
-
 main()

@@ -171,7 +171,7 @@ def myPerceptualHash(s,e):
     keywords=GetKeywords('vectorcount',start,end)
     if len(keywords) > 0:
         for keyword in keywords:
-            coord = GetCoordinate('coordtweets', keyword[0], -1)  # create perfect image of the file
+            coord = GetCoordinate('coord_sorted_tweets', keyword[0], -1)  # create perfect image of the file
             if len(coord)<=0:#some stop words may have no returns
                 continue
             t1=time.time()
