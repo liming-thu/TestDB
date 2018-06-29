@@ -42,4 +42,37 @@ def fineSample(s,e):
                 cur.execute(sql)
             print res_x,x,res_y,y
     cur.execute('commit')
+def myPerceptualHash(s,e):
+    start=int(s)
+    end=int(e)
+    conn=psycopg2.connect(conStr)
+    cur=conn.cursor()
+    keywords=GetKeywords('vectorcount',start,end)
+    if len(keywords) > 0:
+        for keyword in keywords:
+            coord = GetCoordinate('coord_sorted_tweets', keyword[0], -1)  # create perfect image of the file
+            if len(coord)<=0:#some stop words may have no returns
+                continue
+            t1=time.time()
+            perfectImage=imageHashFromCoordinates(coord)
+            perfectLen=len(perfectImage)
+            curK=0
+            prevK=0
+            deltaImage={}
+            prevImage={}
+            for i in range(70,100):
+                curK=i*keyword[1]/100
+                deltaCoord=coord[prevK:curK]
+                deltaImage=deltaImageHashFromCoordinates(deltaCoord,prevImage)
+                similarity=float(len(prevImage)+len(deltaImage))/perfectLen
+                for key in deltaImage.keys():
+                    prevImage[key]=1
+                prevK=curK
+                sql = "insert into keyword_r_q values('" + keyword[0] + "'," + str(i) + "," + str(
+                    similarity) + ",'70-100')"
+                cur.execute(sql)
+                cur.execute("commit")
+                print keyword[0],i,similarity
+            t2=time.time()
+            print keyword[0],t2-t1
 fineSample(80000,4000000)
