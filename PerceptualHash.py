@@ -4,8 +4,8 @@ import math
 from os import listdir
 
 def PixelSD(file):
-    res_x=1920/2
-    res_y=1080/2
+    res_x=1920/4
+    res_y=1080/4
     x0=15.0
     x1=70.0
     y0=-170.0
