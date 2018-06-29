@@ -1,7 +1,8 @@
 import psycopg2
 import time
+import math
 
-granularity=4
+granularity=100
 
 res_x=1920/granularity
 res_y=1080/granularity
@@ -42,7 +43,23 @@ def fineSample(s,e):
                 cur.execute(sql)
             print res_x,x,res_y,y
     cur.execute('commit')
-def myPerceptualHash(s,e):
+def imageHashFromCoordinates(coord):
+    pixel_x=(x1-x0)/res_x
+    pixel_y=(y1-y0)/res_y
+    image={}
+    for c in coord:
+        x=float(c[0])
+        y=float(c[1])
+        if y<y0 or y>y1 or x>x1 or x<x0:
+            continue
+        else:
+            index_x=int(math.floor((x-x0)/pixel_x))
+            index_y=int(math.floor((y-y0)/pixel_y))
+            key=str(index_x)+":"+str(index_y)
+            if key not in image.keys():
+                image[key]=1
+    return image
+def quality(s,e):
     start=int(s)
     end=int(e)
     conn=psycopg2.connect(conStr)
@@ -50,29 +67,36 @@ def myPerceptualHash(s,e):
     keywords=GetKeywords('vectorcount',start,end)
     if len(keywords) > 0:
         for keyword in keywords:
-            coord = GetCoordinate('coord_sorted_tweets', keyword[0], -1)  # create perfect image of the file
+            coord = GetCoordinate('coordtweets', keyword[0], -1)  # perfect image
             if len(coord)<=0:#some stop words may have no returns
                 continue
             t1=time.time()
             perfectImage=imageHashFromCoordinates(coord)
             perfectLen=len(perfectImage)
-            curK=0
-            prevK=0
-            deltaImage={}
-            prevImage={}
-            for i in range(70,100):
-                curK=i*keyword[1]/100
-                deltaCoord=coord[prevK:curK]
-                deltaImage=deltaImageHashFromCoordinates(deltaCoord,prevImage)
-                similarity=float(len(prevImage)+len(deltaImage))/perfectLen
-                for key in deltaImage.keys():
-                    prevImage[key]=1
-                prevK=curK
-                sql = "insert into keyword_r_q values('" + keyword[0] + "'," + str(i) + "," + str(
-                    similarity) + ",'70-100')"
-                cur.execute(sql)
-                cur.execute("commit")
-                print keyword[0],i,similarity
+            coord2=GetCoordinate('coarsesample',keyword[0],-1)#sample image
+            sampleImage=imageHashFromCoordinates(coord2)
+            sampleLen=len(sampleImage)
             t2=time.time()
-            print keyword[0],t2-t1
-fineSample(80000,4000000)
+            print keyword[0],float(sampleLen)/float(perfectLen),t2-t1
+def coarseSample(s,e):
+    # keywords=GetKeywords('vectorcount',s,e)
+    for x in range(0,res_x):
+        for y in range(0,res_y):
+            bottomleftX=x0+xStep*x
+            bottomleftY=y0+yStep*y
+            toprightX=x0+xStep*(x+1)
+            toprightY=y0+yStep*(y+1)
+            box="box '("+str(bottomleftX)+","+str(bottomleftY)+"),("+str(toprightX)+","+str(toprightY)+")'"
+            sql="select count(*) from coordtweets  where "+box+"@>coordinate"
+            cur.execute(sql)
+            count=cur.fetchall()
+            if count[0][0]==0:
+                continue
+            k=min(int(count[0][0]*0.15),54000)
+            k=max(k,27*25)
+            sql="insert into coarsesample select * from coordtweets where "+box+"@>coordinate limit "+str(k)
+            cur.execute(sql)
+            print res_x,x,res_y,y
+    cur.execute('commit')
+# coarseSample(80000,4000000)
+quality(400000,4000000)
