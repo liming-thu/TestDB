@@ -2,7 +2,7 @@ import psycopg2
 import time
 import math
 
-granularity=100
+granularity=4
 
 res_x=1920/granularity
 res_y=1080/granularity
@@ -18,6 +18,35 @@ xStep=(x1-x0)/res_x
 conStr="dbname='postgres' user='postgres' host='169.234.57.197' password='liming' "
 conn=psycopg2.connect(conStr)
 cur=conn.cursor()
+
+def densityofFullDataset():
+    f=open("10M.csv")
+    image={}
+    i=0
+    for line in f.readlines():
+        c = line[line.rfind("(") + 1:line.rfind(")")].split(",")
+        pixel_x = (x1 - x0) / res_x
+        pixel_y = (y1 - y0) / res_y
+        x = float(c[0])
+        y = float(c[1])
+        if y < y0 or y > y1 or x > x1 or x < x0:
+            continue
+        else:
+            index_x = int(math.floor((x - x0) / pixel_x))
+            index_y = int(math.floor((y - y0) / pixel_y))
+            key = str(index_x) + "," + str(index_y)
+            if key not in image.keys():
+                image[key] = 1
+            else:
+                image[key] += 1
+        i += 1
+        if i % 100000 == 0:
+            print i
+    print i
+    f.close()
+    f.open("fullds.csv",'aw+')
+    for p in image:
+        f.writelines(p+","+str(image[p])+","+image[0]+",full\n")
 
 def GetCoordinate(tb,keyword,limit):
     sql="select coordinate[0],coordinate[1] from "+tb+" where to_tsvector('english',text)@@to_tsquery('english','"+keyword+"')"
@@ -43,6 +72,49 @@ def fineSample(s,e):
                 cur.execute(sql)
             print res_x,x,res_y,y
     cur.execute('commit')
+def gridSample(s,e,k):
+    keywords=GetKeywords('vectorcount',s,e)
+    i=0
+    j=0
+    for x in range(0,res_x):
+        for y in range(0,res_y):
+            bottomleftX=x0+xStep*x
+            bottomleftY=y0+yStep*y
+            toprightX=x0+xStep*(x+1)
+            toprightY=y0+yStep*(y+1)
+            box="box '("+str(bottomleftX)+","+str(bottomleftY)+"),("+str(toprightX)+","+str(toprightY)+")'"
+            sql="insert into gridsample select * from coordtweets where "+box+"@>coordinate limit "+str(k)
+            cur.execute(sql)
+            # print res_x,x,res_y,y
+    cur.execute('commit')
+    print "Grid Sample: k="+str(k)
+def FindFirstIndexofKeyword(keyword):
+    for x in range(0,res_x):
+        for y in range(0,res_y):
+            bottomleftX=x0+xStep*x
+            bottomleftY=y0+yStep*y
+            toprightX=x0+xStep*(x+1)
+            toprightY=y0+yStep*(y+1)
+            box="box '("+str(bottomleftX)+","+str(bottomleftY)+"),("+str(toprightX)+","+str(toprightY)+")'"
+            sql="select text from coordtweets where "+box+"@>coordinate"
+            cur.execute(sql)
+            texts=cur.fetchall()
+            i=0
+            found=False
+            for text in texts:
+                i+=1
+                sql="select to_tsvector('english','"+text[0].replace("'"," ")+"')@@to_tsquery('english','"+keyword+"')"
+                cur.execute(sql)
+                result=cur.fetchall()
+                if result[0][0]:
+                    found=True
+                    break
+            if found:
+                cur.execute("insert into firstindex values('"+keyword+"',"+str(x)+","+str(y)+","+str(i)+","+str(len(texts))+")")
+            else:
+                cur.execute("insert into firstindex values('"+keyword+"',"+str(x)+","+str(y)+","+str(0)+","+str(len(texts))+")")
+            cur.execute("commit")
+
 def imageHashFromCoordinates(coord):
     pixel_x=(x1-x0)/res_x
     pixel_y=(y1-y0)/res_y
@@ -55,15 +127,32 @@ def imageHashFromCoordinates(coord):
         else:
             index_x=int(math.floor((x-x0)/pixel_x))
             index_y=int(math.floor((y-y0)/pixel_y))
-            key=str(index_x)+":"+str(index_y)
+            key=str(index_x)+","+str(index_y)
             if key not in image.keys():
                 image[key]=1
+            else:
+                image[key]+=1
     return image
+def unionQuality(s,e):
+    keywords=GetKeywords('vectorcount',s,e)
+    if len(keywords) > 0:
+        for keyword in keywords:
+            coord = GetCoordinate('coordtweets', keyword[0], -1)  # perfect image
+            if len(coord)<=0:#some stop words may have no returns
+                continue
+            t1=time.time()
+            perfectImage=imageHashFromCoordinates(coord)
+            perfectLen=len(perfectImage)
+            ##############################
+            coord2=GetCoordinate('gridsample',keyword[0],-1)#sample image
+            sampleImage=imageHashFromCoordinates(coord2)
+            deltaImage=
+            sampleLen=len(sampleImage)
+            t2=time.time()
+            print keyword[0],float(sampleLen)/float(perfectLen),t2-t1
 def quality(s,e):
     start=int(s)
     end=int(e)
-    conn=psycopg2.connect(conStr)
-    cur=conn.cursor()
     keywords=GetKeywords('vectorcount',start,end)
     if len(keywords) > 0:
         for keyword in keywords:
@@ -73,7 +162,7 @@ def quality(s,e):
             t1=time.time()
             perfectImage=imageHashFromCoordinates(coord)
             perfectLen=len(perfectImage)
-            coord2=GetCoordinate('coarsesample',keyword[0],-1)#sample image
+            coord2=GetCoordinate('gridsample',keyword[0],-1)#sample image
             sampleImage=imageHashFromCoordinates(coord2)
             sampleLen=len(sampleImage)
             t2=time.time()
@@ -99,4 +188,12 @@ def coarseSample(s,e):
             print res_x,x,res_y,y
     cur.execute('commit')
 # coarseSample(80000,4000000)
-quality(400000,4000000)
+cur.execute("delete from gridsample")
+cur.execute("commit")
+time1=time.time()
+gridSample(400000,4000000,25)
+time2=time.time()
+print time2-time1
+quality(400000,1000000)
+# densityofFullDataset()
+# FindFirstIndexofKeyword('want')
