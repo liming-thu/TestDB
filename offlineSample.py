@@ -55,7 +55,7 @@ def GetCoordinate(tb,keyword,limit):
     cur.execute(sql)
     return cur.fetchall()
 def GetKeywords(tb,lower,upper):
-    sql="select vector from "+tb+" where count>="+str(lower)+" and count<"+str(upper)#+" and vector not in (select distinct keyword from keyword_k_q) order by count"
+    sql="select vector from "+tb+" where count>="+str(lower)+" and count<"+str(upper)+" order by count"#+" and vector not in (select distinct keyword from keyword_k_q) order by count"
     cur.execute(sql)
     return cur.fetchall()
 def fineSample(s,e):
@@ -72,8 +72,7 @@ def fineSample(s,e):
                 cur.execute(sql)
             print res_x,x,res_y,y
     cur.execute('commit')
-def gridSample(s,e,k):
-    keywords=GetKeywords('vectorcount',s,e)
+def gridSample(k):
     i=0
     j=0
     for x in range(0,res_x):
@@ -133,6 +132,22 @@ def imageHashFromCoordinates(coord):
             else:
                 image[key]+=1
     return image
+def deltaImageHashFromCoordinates(coord,image):
+    pixel_x=(x1-x0)/res_x
+    pixel_y=(y1-y0)/res_y
+    deltaImage={}
+    for c in coord:
+        x=float(c[0])
+        y=float(c[1])
+        if y<y0 or y>y1 or x>x1 or x<x0:
+            continue
+        else:
+            index_x=int(math.floor((x-x0)/pixel_x))
+            index_y=int(math.floor((y-y0)/pixel_y))
+            key=str(index_x)+","+str(index_y)
+            if key not in image.keys():
+                deltaImage[key]=1
+    return deltaImage
 def unionQuality(s,e):
     keywords=GetKeywords('vectorcount',s,e)
     if len(keywords) > 0:
@@ -140,16 +155,45 @@ def unionQuality(s,e):
             coord = GetCoordinate('coordtweets', keyword[0], -1)  # perfect image
             if len(coord)<=0:#some stop words may have no returns
                 continue
-            t1=time.time()
             perfectImage=imageHashFromCoordinates(coord)
             perfectLen=len(perfectImage)
-            ##############################
+            ##############################Offline Sample
             coord2=GetCoordinate('gridsample',keyword[0],-1)#sample image
-            sampleImage=imageHashFromCoordinates(coord2)
-            deltaImage=
-            sampleLen=len(sampleImage)
-            t2=time.time()
-            print keyword[0],float(sampleLen)/float(perfectLen),t2-t1
+            offlinesampleImage=imageHashFromCoordinates(coord2)
+            offlinesampleLen=len(offlinesampleImage)
+            ##############################Online Sample
+            for k in range(1,40):
+                coord3=coord[:k*len(coord)/100]
+                deltaImage=deltaImageHashFromCoordinates(coord3,offlinesampleImage)
+                onlinesampleLen=len(deltaImage)
+                similarity=float(offlinesampleLen+onlinesampleLen)/float(perfectLen)
+                print keyword[0],k,similarity
+                if similarity>0.85:
+                    break
+def k1k2(s,e):
+    keywords=GetKeywords('vectorcount',s,e)
+    for keyword in keywords:
+        coord1 = GetCoordinate('coordtweets', keyword[0], -1)  # perfect image
+        cur.execute("select len from keywordlen where keyword='"+keyword[0]+"'")
+        perfectImageLen=cur.fetchall()[0][0]
+        ##############################
+        ##############################Offline Sample
+        coord2=GetCoordinate('randomsample',keyword[0],-1)#sample image
+        ##############################Online Sample
+        for k1 in range(10,51):
+            sampleImage1=imageHashFromCoordinates(coord1[:int(k1*len(coord1)/100)])
+            similarity1=float(len(sampleImage1))/perfectImageLen
+            for k2 in range(100,101):
+                # sampleImage2=imageHashFromCoordinates(coord2[:len(coord2)*k2/100])
+                deltaImage=deltaImageHashFromCoordinates(coord2[:len(coord2)*k2/100],sampleImage1)
+                # similarity2=float(len(sampleImage2))/perfectImageLen
+                similarity=float(len(sampleImage1)+len(deltaImage))/perfectImageLen
+                # if similarity>0.85:
+                print keyword[0],k1,similarity1,similarity
+                    # break
+            # if similarity>0.85:
+            #     break
+
 def quality(s,e):
     start=int(s)
     end=int(e)
@@ -187,13 +231,77 @@ def coarseSample(s,e):
             cur.execute(sql)
             print res_x,x,res_y,y
     cur.execute('commit')
-# coarseSample(80000,4000000)
-cur.execute("delete from gridsample")
-cur.execute("commit")
-time1=time.time()
-gridSample(400000,4000000,25)
-time2=time.time()
-print time2-time1
-quality(400000,1000000)
-# densityofFullDataset()
-# FindFirstIndexofKeyword('want')
+def createGridSample(k):
+    cur.execute("delete from gridsample")
+    # cur.execute("delete from tmpgridsample")
+    cur.execute("commit")
+    time1=time.time()
+    gridSample(k)
+    # cur.execute("insert into gridsample select * from tmpgridsample order by random()")
+    # cur.execute("commit")
+    time2=time.time()
+    print time2-time1
+def timeofK(keyword):
+    for k1 in [0.4,0.5,0.6,0.7,0.8,0.9]:
+        k=k1*3000000/100
+        # cur.execute("select * from tweets where to_tsvector('english',text)@@to_tsquery('english','job') limit 10000")
+        # cur.execute("set work_mem='64kB'")
+        # cur.execute("commit")
+        # cur.execute("set work_mem='2000MB'")
+        # cur.execute("commit")
+        t=time.time()
+        cur.execute("select coordinate[0],coordinate[1] from coordtweets where to_tsvector('english',text)@@to_tsquery('english','"+keyword+"') limit "+ str(k))
+        cur.fetchall()
+        print 'k1',k1,time.time()-t
+    for k2 in range(1,99):
+        k=k2*300000/100
+        # cur.execute("select * from tweets where to_tsvector('english',text)@@to_tsquery('english','job') limit 10000")
+        # cur.execute("set work_mem='64kB'")
+        # cur.execute("set work_mem='2000MB'")
+        t=time.time()
+        cur.execute("select coordinate[0],coordinate[1] from gridsample where to_tsvector('english',text)@@to_tsquery('english','"+keyword+"') limit "+ str(k))
+        cur.fetchall()
+        print 'k2',k2,time.time()-t
+def timeofkeyword(tab,keyword,k):
+    cur.execute("select * from tweets where to_tsvector('english',text)@@to_tsquery('english','job') limit 3000000")
+    t=time.time()
+    cur.execute("select coordinate from "+tab+" where to_tsvector('english',text)@@to_tsquery('english','"+keyword+"') limit "+str(k))
+    print tab,keyword,k,time.time()-t
+# createGridSample(10)
+# quality(400000,800000)
+k1k2(400000,4000000)
+# # timeofK('job')
+# timeofkeyword('coord_sorted_tweets','look',302241 )
+# timeofkeyword('coord_sorted_tweets','appli',391655 )
+# timeofkeyword('coord_sorted_tweets','recommend',403197 )
+# timeofkeyword('coord_sorted_tweets','anyon',414532 )
+# timeofkeyword('coord_sorted_tweets','fit',439006 )
+# timeofkeyword('coord_sorted_tweets','want',457859 )
+# timeofkeyword('coord_sorted_tweets','see',493643 )
+# timeofkeyword('coord_sorted_tweets','great',504732 )
+# timeofkeyword('coord_sorted_tweets','click',539074 )
+# timeofkeyword('coord_sorted_tweets','open',579143 )
+# timeofkeyword('coord_sorted_tweets','work',636155 )
+# timeofkeyword('coord_sorted_tweets','latest',603834 )
+# timeofkeyword('coord_sorted_tweets','careerarc',610305 )
+# timeofkeyword('coord_sorted_tweets','hire',25506 )
+# timeofkeyword('coord_sorted_tweets','job',27411 )
+# timeofkeyword('coordtweets','latest',237398)
+# timeofkeyword('coordtweets','careerarc',237280)
+# timeofkeyword('coordtweets','hire',420074)
+# timeofkeyword('coordtweets','job',472051)
+# ####
+# timeofkeyword('coordtweets','latest',47480)
+# timeofkeyword('coordtweets','careerarc',47935)
+# timeofkeyword('coordtweets','hire',560)
+# timeofkeyword('coordtweets','job',315)
+# ####
+# timeofkeyword('gridsample','latest',10338)
+# timeofkeyword('gridsample','careerarc',11113)
+# timeofkeyword('gridsample','hire',24946)
+# timeofkeyword('gridsample','job',27380)
+# ####
+# timeofkeyword('coordtweets','latest',57818)
+# timeofkeyword('coordtweets','careerarc',59048)
+# timeofkeyword('coordtweets','hire',25506)
+# timeofkeyword('coordtweets','job',27695)
