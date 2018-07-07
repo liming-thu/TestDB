@@ -4,23 +4,27 @@ import matplotlib.pyplot as plt
 import os
 import time
 import math
+import numpy as np
 
 res_x=1920/4
 res_y=1080/4
 
-x0=15.0
-x1=70.0
+y0=15.0
+y1=70.0
 
-y0=-170.0
-y1=-60.0
-conStr="dbname='postgres' user='postgres' host='169.234.1.56' password='liming' "
+x0=-170.0
+x1=-60.0
+conStr="dbname='postgres' user='postgres' host='169.234.57.197' password='liming' "
+conn=psycopg2.connect(conStr)
+cur=conn.cursor()
+
 def imageHashFromCoordinates(coord):
     pixel_x=(x1-x0)/res_x
     pixel_y=(y1-y0)/res_y
     image={}
     for c in coord:
-        y=float(c[0])
-        x=float(c[1])
+        x=float(c[0])
+        y=float(c[1])
         if y<y0 or y>y1 or x>x1 or x<x0:
             continue
         else:
@@ -35,8 +39,8 @@ def deltaImageHashFromCoordinates(coord,image):
     pixel_y=(y1-y0)/res_y
     deltaImage={}
     for c in coord:
-        y=float(c[0])
-        x=float(c[1])
+        x=float(c[0])
+        y=float(c[1])
         if y<y0 or y>y1 or x>x1 or x<x0:
             continue
         else:
@@ -123,10 +127,10 @@ def GetCoordinate(tb,keyword,limit):
         sql+=" limit "+str(limit)
     cur.execute(sql)
     return cur.fetchall()
-def GetKeywords(tb,lower,upper):
+def GetKeywords(tb,lower,upper,k):
     conn=psycopg2.connect(conStr)
     cur=conn.cursor()
-    sql="select vector,count from "+tb+" where count>="+str(lower)+" and count<"+str(upper)#+" and vector not in (select distinct keyword from keyword_k_q) order by count"
+    sql="select vector,count from "+tb+" where count>="+str(lower)+" and count<"+str(upper)+"order by count limit "+str(k) #+" and vector not in (select distinct keyword from keyword_k_q) order by count"
     cur.execute(sql)
     return cur.fetchall()
 #start 5000,3820000
@@ -163,40 +167,83 @@ def main(s,e):
                 # cur.execute(sql)
                 # cur.execute("commit")
                 # print keyword,k,similarity
-def myPerceptualHash(s,e):
+def perfectImageLenofKeyword(w):
+    i=0
+    j=0
+    xStep=(x1-x0)/res_x
+    yStep=(y1-y0)/res_y
+    ilen=0
+    for x in range(0,res_x):
+        for y in range(0,res_y):
+            bottomleftX=x0+xStep*x
+            bottomleftY=y0+yStep*y
+            toprightX=x0+xStep*(x+1)
+            toprightY=y0+yStep*(y+1)
+            box="box '("+str(bottomleftX)+","+str(bottomleftY)+"),("+str(toprightX)+","+str(toprightY)+")'"
+            sql="select * from tweets where "+box+"@>coordinate and to_tsvector('english',text)@@to_tsquery('english','"+w+"') limit 1"
+            time1=time.time()
+            cur.execute(sql)
+            if len(cur.fetchall())>0:
+                ilen+=1
+            print time.time()-time1,x,y
+    return ilen
+# def seqSearchK():
+#     t1=time.time()
+#     for i in range(9,101):
+#         k=i*len(ar)/100
+#         Hs,xs,ys=np.histogram2d(ar[:k][:,0],ar[:k][:,1],bins=(res_x,res_y),range=((-170,-60),(15,70)))
+#         sampleLen=np.count_nonzero(Hs)
+#         similarity=float(sampleLen)/perfectLen
+#         if similarity>0.85:
+#             # sql = "insert into keyword_r_q values('" + keyword[0] + "'," + str(i) + "," + str(
+#             #     similarity) + ",'100M')"
+#             # cur.execute(sql)
+#             # cur.execute("commit")
+#             t2=time.time()
+#             print "seq search time:",keyword[0],similarity,i,time.time()-t1
+#             break
+def myPerceptualHash(s,e,table):
     start=int(s)
     end=int(e)
     conn=psycopg2.connect(conStr)
     cur=conn.cursor()
-    keywords=GetKeywords('vectorcount',start,end)
+    keywords=GetKeywords('vectorcount',start,end,2000)
+    t=time.time()
     if len(keywords) > 0:
         for keyword in keywords:
-            coord = GetCoordinate('coord_sorted_tweets', keyword[0], -1)  # create perfect image of the file
-            if len(coord)<=0:#some stop words may have no returns
+            t0=time.time()
+            ar=np.array(GetCoordinate(table, keyword[0], -1)) # create perfect image of the file
+            if len(ar)<=5000:#some stop words may have no returns
                 continue
             t1=time.time()
-            perfectImage=imageHashFromCoordinates(coord)
-            perfectLen=len(perfectImage)
-            curK=0
-            prevK=0
-            deltaImage={}
-            prevImage={}
-            for i in range(70,100):
-                curK=i*keyword[1]/100
-                deltaCoord=coord[prevK:curK]
-                deltaImage=deltaImageHashFromCoordinates(deltaCoord,prevImage)
-                similarity=float(len(prevImage)+len(deltaImage))/perfectLen
-                for key in deltaImage.keys():
-                    prevImage[key]=1
-                prevK=curK
-                sql = "insert into keyword_r_q values('" + keyword[0] + "'," + str(i) + "," + str(
-                    similarity) + ",'70-100')"
-                cur.execute(sql)
-                cur.execute("commit")
-                print keyword[0],i,similarity
+            H,x,y=np.histogram2d(ar[:,0],ar[:,1],bins=(res_x,res_y),range=((-170,-60),(15,70)))
+            perfectLen=np.count_nonzero(H)
+            i=0.0
+            l=0.0
+            h=100.0
+            similarity=0.0
+            iterTimes=0
             t2=time.time()
-            print keyword[0],t2-t1
-
+            while (similarity<0.85 or similarity>0.86) and iterTimes<10:
+                if similarity<0.85:
+                    l=i
+                    i=(h+i)/2
+                else:
+                    h=i
+                    i=(i+l)/2
+                k=int(i*len(ar)/100)
+                Hs,xs,ys=np.histogram2d(ar[:k][:,0],ar[:k][:,1],bins=(res_x,res_y),range=((-170,-60),(15,70)))
+                sampleLen=np.count_nonzero(Hs)
+                similarity=float(sampleLen)/perfectLen
+                iterTimes+=1
+            print keyword[0],"simlarity:",similarity,"ratio:",i,"fetch:",t1-t0,"draw:",t2-t1,"search:",time.time()-t2
+    print "Total time of",table,":",time.time()-t
 # main(sys.argv[1],sys.argv[2])
-myPerceptualHash(56000,81000)
+# myPerceptualHash(10,20)
+# myPerceptualHash(1000,1050)
+# myPerceptualHash(10000,10500)
+# myPerceptualHash(100000,105000)
+myPerceptualHash(5000,4000000,'coordtweets')
+myPerceptualHash(5000,4000000,'tweets')
+# myPerceptualHash(1000000,1900000)
 # main(5000,4000000)
