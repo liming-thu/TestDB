@@ -123,7 +123,7 @@ def GetCoordinate(tb,keyword,limit):
     conn=psycopg2.connect(conStr)
     cur=conn.cursor()
     sql="select coordinate[0],coordinate[1] from "+tb+" where to_tsvector('english',text)@@to_tsquery('english','"+keyword+"')"
-    if limit>0:
+    if limit>=0:
         sql+=" limit "+str(limit)
     cur.execute(sql)
     return cur.fetchall()
@@ -202,6 +202,9 @@ def perfectImageLenofKeyword(w):
 #             t2=time.time()
 #             print "seq search time:",keyword[0],similarity,i,time.time()-t1
 #             break
+def hashByNumpy(ar,r=((-170,-60),(15,70))):
+    H,x,y=np.histogram2d(ar[:,0],ar[:,1],bins=(res_x,res_y),range=r)
+    return H
 def myPerceptualHash(s,e,table):
     start=int(s)
     end=int(e)
@@ -216,7 +219,7 @@ def myPerceptualHash(s,e,table):
             if len(ar)<=5000:#some stop words may have no returns
                 continue
             t1=time.time()
-            H,x,y=np.histogram2d(ar[:,0],ar[:,1],bins=(res_x,res_y),range=((-170,-60),(15,70)))
+            H=hashByNumpy(ar)
             perfectLen=np.count_nonzero(H)
             i=0.0
             l=0.0
@@ -232,18 +235,35 @@ def myPerceptualHash(s,e,table):
                     h=i
                     i=(i+l)/2
                 k=int(i*len(ar)/100)
-                Hs,xs,ys=np.histogram2d(ar[:k][:,0],ar[:k][:,1],bins=(res_x,res_y),range=((-170,-60),(15,70)))
+                Hs=hashByNumpy(ar[:k])
                 sampleLen=np.count_nonzero(Hs)
                 similarity=float(sampleLen)/perfectLen
                 iterTimes+=1
             print keyword[0],"simlarity:",similarity,"ratio:",i,"fetch:",t1-t0,"draw:",t2-t1,"search:",time.time()-t2
     print "Total time of",table,":",time.time()-t
+def switchExePlan():
+    # pCoord=np.array(GetCoordinate('coordtweets','job',-1))
+    pLen=7510
+    for k in range(60000,60100):
+        sCoord=np.array(GetCoordinate('coordtweets','job',k))
+        sLen=np.count_nonzero(hashByNumpy(sCoord))
+        print k,float(sLen)/pLen
+def consistentTest():
+    k=20000
+    a=np.array(GetCoordinate('coordtweets','job',k))
+    for i in range(1,10):
+        b=np.array(GetCoordinate('coordtweets','job',k))
+        for coord in a:
+            if not b.__contains__(coord):
+                print coord,i
+consistentTest()
+# switchExePlan()
 # main(sys.argv[1],sys.argv[2])
 # myPerceptualHash(10,20)
 # myPerceptualHash(1000,1050)
 # myPerceptualHash(10000,10500)
 # myPerceptualHash(100000,105000)
-myPerceptualHash(5000,4000000,'coordtweets')
-myPerceptualHash(5000,4000000,'tweets')
+# myPerceptualHash(5000,4000000,'coordtweets')
+# myPerceptualHash(5000,4000000,'tweets')
 # myPerceptualHash(1000000,1900000)
 # main(5000,4000000)
