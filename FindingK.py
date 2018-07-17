@@ -122,7 +122,7 @@ def DrawImage(matrix,fn):
 def GetCoordinate(tb,keyword,limit):
     conn=psycopg2.connect(conStr)
     cur=conn.cursor()
-    sql="select coordinate[0],coordinate[1] from "+tb+" where to_tsvector('english',text)@@to_tsquery('english','"+keyword+"')"
+    sql=" select coordinate[0],coordinate[1] from "+tb+" where to_tsvector('english',text)@@to_tsquery('english','"+keyword+"')"
     if limit>=0:
         sql+=" limit "+str(limit)
     cur.execute(sql)
@@ -249,13 +249,13 @@ def switchExePlan():
         sLen=np.count_nonzero(hashByNumpy(sCoord))
         print k,float(sLen)/pLen
 def consistentTest():
-    k=20000
-    a=np.array(GetCoordinate('coordtweets','job',k))
-    for i in range(1,10):
+    k=42670
+    # a=np.array(GetCoordinate('coordtweets','job',-1))
+    pLen=7510
+    for i in range(1,21):
         b=np.array(GetCoordinate('coordtweets','job',k))
-        for coord in a:
-            if not b.__contains__(coord):
-                print coord,i
+        sLen=np.count_nonzero(hashByNumpy(b))
+        print float(sLen)/pLen
 consistentTest()
 # switchExePlan()
 # main(sys.argv[1],sys.argv[2])
