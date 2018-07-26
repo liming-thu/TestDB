@@ -14,7 +14,7 @@ y1=70.0
 
 x0=-170.0
 x1=-60.0
-conStr="dbname='postgres' user='postgres' host='169.234.57.197' password='liming' "
+conStr="dbname='postgres' user='postgres' host='169.234.37.181' password='liming' "
 conn=psycopg2.connect(conStr)
 cur=conn.cursor()
 
@@ -119,10 +119,12 @@ def DrawImage(matrix,fn):
     plt.xlim(-170,-60)
     plt.savefig(fn,bbox_inches='tight',dpi=350)
     plt.close()
-def GetCoordinate(tb,keyword,limit):
+def GetCoordinate(tb,keyword,limit,orderby=False):
     conn=psycopg2.connect(conStr)
     cur=conn.cursor()
     sql=" select coordinate[0],coordinate[1] from "+tb+" where to_tsvector('english',text)@@to_tsquery('english','"+keyword+"')"
+    if orderby:
+        sql+=" order by id"
     if limit>=0:
         sql+=" limit "+str(limit)
     cur.execute(sql)
@@ -205,6 +207,8 @@ def perfectImageLenofKeyword(w):
 def hashByNumpy(ar,r=((-170,-60),(15,70))):
     H,x,y=np.histogram2d(ar[:,0],ar[:,1],bins=(res_x,res_y),range=r)
     return H
+def imageLen(array):
+    return np.count_nonzero(hashByNumpy(array))
 def myPerceptualHash(s,e,table):
     start=int(s)
     end=int(e)
@@ -249,21 +253,60 @@ def switchExePlan():
         sLen=np.count_nonzero(hashByNumpy(sCoord))
         print k,float(sLen)/pLen
 def consistentTest():
-    k=42670
     # a=np.array(GetCoordinate('coordtweets','job',-1))
     pLen=7510
-    for i in range(1,21):
-        b=np.array(GetCoordinate('coordtweets','job',k))
+    for i in range(35670,50000,1000):
+        b=np.array(GetCoordinate('coord_sorted_tweets','job',i))
         sLen=np.count_nonzero(hashByNumpy(b))
-        print float(sLen)/pLen
-consistentTest()
-# switchExePlan()
-# main(sys.argv[1],sys.argv[2])
-# myPerceptualHash(10,20)
-# myPerceptualHash(1000,1050)
-# myPerceptualHash(10000,10500)
-# myPerceptualHash(100000,105000)
-# myPerceptualHash(5000,4000000,'coordtweets')
-# myPerceptualHash(5000,4000000,'tweets')
-# myPerceptualHash(1000000,1900000)
-# main(5000,4000000)
+        print float(sLen)/pLen,i
+def planxchg():
+    pLen=7510
+    for i in range(22000,62651,2000 ):
+        cur.execute("select * from tweets limit 11000000")
+        t1=time.time()
+        iRec=np.array(GetCoordinate('coord_sorted_tweets','job',i))
+        t2=time.time()
+        sLen=np.count_nonzero(hashByNumpy(iRec))
+        print i,t2-t1, float(sLen)/pLen
+def qualityofrange():
+    pLen=7510
+    r42500=GetCoordinate('coord_sorted_tweets','job',42500)#using sequential scan
+    sLen1=np.count_nonzero(hashByNumpy(np.array(r42500)))
+    print float(sLen1)/pLen
+    for i in range(2500,42501,2500):
+        ar=np.array(r42500[:i])
+        sLen=np.count_nonzero(hashByNumpy(ar))
+        print i,float(sLen)/pLen
+def isSubsetFromFile(f1,f2):# f1 is a subset of f2
+    ar1=np.genfromtxt(f1,delimiter=',')
+    ar2=np.genfromtxt(f2,delimiter=',')
+    for c in ar1:
+        if c not in ar2:
+            print False
+            break
+        print True
+def isSubsetFromDB():
+    ar1=np.array(GetCoordinate('coord_sorted_tweets','job',42500))
+    for i in range(1,21):
+        print i
+        ar2=np.array(GetCoordinate('coord_sorted_tweets','job',43000))
+        for c in ar2:
+            if c not in ar1:
+                print i, False
+                break
+def qualityChange():
+    pLen=imageLen(np.array(GetCoordinate('coordtweets','love',-1)))
+    for i in range(1,31):
+        ar2=np.array(GetCoordinate('coordtweets','love',150000))
+        iLen=np.count_nonzero(hashByNumpy(ar2))
+        print float(iLen)/pLen
+def orderbyTime():
+    for k in range(50000,300000,10000):
+        t1=time.time()
+        GetCoordinate('coord_sorted_tweets','job',k)
+        t2=time.time()
+        GetCoordinate('coord_sorted_tweets','job',k,True)
+        t3=time.time()
+        print k,t2-t1,t3-t2
+# orderbyTime()
+# qualityChange()
