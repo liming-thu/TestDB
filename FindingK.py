@@ -14,7 +14,7 @@ y1=70.0
 
 x0=-170.0
 x1=-60.0
-conStr="dbname='postgres' user='postgres' host='169.234.37.181' password='liming' "
+conStr="dbname='postgres' user='postgres' host='169.234.49.169' password='liming' "
 conn=psycopg2.connect(conStr)
 cur=conn.cursor()
 
@@ -209,6 +209,25 @@ def hashByNumpy(ar,r=((-170,-60),(15,70))):
     return H
 def imageLen(array):
     return np.count_nonzero(hashByNumpy(array))
+def findkofQ(ar,Q):
+    perfectLen=imageLen(np.array(ar))
+    i=0.0
+    l=0.0
+    h=100.0
+    similarity=0.0
+    iterTimes=0
+    while (similarity<0.85 or similarity>0.86) and iterTimes<10:
+        if similarity<0.85:
+            l=i
+            i=(h+i)/2
+        else:
+            h=i
+            i=(i+l)/2
+        k=int(i*len(ar)/100)
+        sampleLen=imageLen(np.array(ar[:k]))
+        similarity=float(sampleLen)/perfectLen
+        iterTimes+=1
+    return i
 def myPerceptualHash(s,e,table):
     start=int(s)
     end=int(e)
@@ -308,5 +327,26 @@ def orderbyTime():
         GetCoordinate('coord_sorted_tweets','job',k,True)
         t3=time.time()
         print k,t2-t1,t3-t2
-# orderbyTime()
-# qualityChange()
+def ScaleDataSize():
+    for w in ['soccer','beach','love']:
+        coord=GetCoordinate('coordtweets',w,-1)
+        print w, len(coord)
+        for s in range(10,101,10):
+            size=s*len(coord)/100
+            scoord=coord[:size]
+            r=findkofQ(scoord,0.85)
+            print size,r*size
+def m(n,p,l):
+    # return math.factorial(n)*math.factorial(p)*math.pow(l,(n-l))/(math.factorial(l)*math.factorial(n-l)*math.factorial(l)*math.factorial(p-l))
+    return math.factorial(p)*math.factorial(n-1)/(math.factorial(l)*math.factorial(p-l)*math.factorial(l-1)*math.factorial(n-l))
+    # return math.factorial(n)*math.factorial(p)*math.pow(l,(n-l))/(math.factorial(n-l)*math.factorial(p-l))
+# ScaleDataSize()
+def prob(n,p,x):
+    all=0
+    sub=0
+    for i in range(1,min(n,p)+1):
+        all+=m(n,p,i)
+        if i<=x:
+            sub=all
+    print float(sub)/all
+# prob(10000,10000,2000)
