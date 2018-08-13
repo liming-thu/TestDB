@@ -86,9 +86,9 @@ def gridSample(k,offset=0):
             sqlcnt="select count(*) from coordtweets where "+box+"@>coordinate"
             cur.execute(sqlcnt)
             cnt=cur.fetchall()
-            if cnt[0][0]<=k+offset:
+            if cnt[0][0]>=k:
                 tmpoffset=cnt[0][0]-k
-            if cnt[0][0]<=k:
+            else:
                 tmpoffset=0
             if cnt[0][0]>0:
                 sql="insert into gridsample select * from coordtweets where "+box+"@>coordinate offset "+str(tmpoffset)+" limit "+str(k)
