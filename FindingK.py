@@ -229,6 +229,40 @@ def findkofQ(ar,Q):
         similarity=float(sampleLen)/perfectLen
         iterTimes+=1
     return i
+
+def BinarySearch(w,q,tb,hybridtab='null'):
+    coord=GetCoordinate(tb, w, -1)
+    if len(coord)<5000:
+        return 0
+
+    offlineHs=np.zeros(shape=(480,270),dtype=int)
+    if hybridtab is not 'null':
+        offlinecoord=GetCoordinate(hybridtab,w,-1)
+        offlineHs=hashByNumpy(np.array(offlinecoord))
+
+    ar=np.array(coord) # create perfect image of the file
+    H=hashByNumpy(ar)
+    perfectLen=np.count_nonzero(H)
+    i=0.0
+    l=0.0
+    h=100.0
+    similarity=0.0
+    iterTimes=0
+    while (similarity<q or similarity>q*1.05) and iterTimes<20:
+        if similarity<q:
+            l=i
+            i=(h+i)/2
+        else:
+            h=i
+            i=(i+l)/2
+        k=int(i*len(ar)/100)
+        Hs=hashByNumpy(ar[:k])
+        if hybridtab is not 'null':
+            Hs+=offlineHs
+        sampleLen=np.count_nonzero(Hs)
+        similarity=float(sampleLen)/perfectLen
+        iterTimes+=1
+    return k
 def myPerceptualHash(s,e,table):
     start=int(s)
     end=int(e)
@@ -426,6 +460,10 @@ def countMapQualityMem(s,e):
                 else:
                     sub[res[i][0]]=1
             print w[0],float(k)/w[1],getError(gt,freq,sub,k)
-
-# countMapQualityMem(34635,34636)
-myPerceptualHash(106875,106876,'coord_sorted_tweets')
+def kkk(s,e):
+    keywords=GetKeywords('vectorcount',s,e,1000)
+    for w in keywords:
+        print w[0],w[1],'online',BinarySearch(w[0],0.85,'coordtweets')
+        print w[0],w[1],'offset0',BinarySearch(w[0],0.85,'coordtweets','gridsample0')
+        print w[0],w[1],'offset50',BinarySearch(w[0],0.85,'coordtweets','gridsample')
+kkk(20000,50000)
