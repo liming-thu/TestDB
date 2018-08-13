@@ -5,6 +5,7 @@ import os
 import time
 import math
 import numpy as np
+import demjson
 
 res_x=1920/4
 res_y=1080/4
@@ -349,4 +350,82 @@ def prob(n,p,x):
         if i<=x:
             sub=all
     print float(sub)/all
-# prob(10000,10000,2000)
+def loadStatePolygon():
+    poly=demjson.decode_file("state.json")
+    for state in poly['features']:
+        name=state['properties']['name']
+        polys=state['geometry']['coordinates']
+        for p in polys:
+            coords="'"+str(p).replace('[','(').replace(']',')')[1:-1]+"'"
+            sql="insert into statepolygon values('"+name+"',"+coords+")"
+            cur.execute(sql)
+            print name
+    cur.execute('commit')
+def updateStateField():
+    cur.execute("select id from coordtweets")
+    ids=cur.fetchall()
+    i=0
+    for id in ids:
+        name="NULL"
+        cur.execute("select state from statepolygon where poly@>(select coordinate from coordtweets where id="+str(id[0])+") limit 1")
+        res=cur.fetchall()
+        if len(res)>0:
+            name=res[0][0]
+        cur.execute("update coordtweets set state='"+name+"' where id="+str(id[0]))
+        i+=1
+        print i,id
+    cur.execute('commit')
+def countMap(w,k=4000000):
+    sql="select state, count(*) from (select state,id from coordtweets where to_tsvector('english',text)@@to_tsquery('english','"+w+"') limit "+str(k)+") t group by t.state"
+    cur.execute(sql)
+    return cur.fetchall()
+def countMapQuality(s,e):
+    keywords=GetKeywords('vectorcount',s,e,1000)
+    for w in keywords:
+        gt=dict((x,y) for x,y in countMap(w[0]))
+        for i in gt.keys():
+            gt[i]=float(gt[i])/w[1]
+        for r in range(1,101,1):
+            k=r*w[1]/100
+            sub=dict((x,y) for x,y in countMap(w[0],k))
+            for i in sub.keys():
+                sub[i]=float(sub[i])/k
+            e=0.0
+            for i in gt.keys():
+                if sub.has_key(i):
+                    e+=math.pow((gt[i]-sub[i]),2)
+                else:
+                    e+=math.pow(gt[i],2)
+            print w[0],r/1000,k, math.sqrt(e)
+def getError(gt,freq,sub,k):
+    e=0.0
+    for i in gt.keys():
+        if sub.has_key(i):
+            e+=math.pow(float(gt[i])/freq-float(sub[i])/k,2)
+        else:
+            e+=math.pow(float(gt[i])/freq,2)
+    return math.sqrt(e)
+def countMapQualityMem(s,e):
+    keywords=GetKeywords('vectorcount',s,e,1000)
+    for w in keywords:
+        cur.execute("select state from coordtweets where to_tsvector('english',text)@@to_tsquery('english','"+w[0]+"')")
+        res=cur.fetchall()
+        freq=len(res)
+        gt={}
+        for i in res:
+            if gt.has_key(i[0]):
+                gt[i[0]]+=1
+            else:
+                gt[i[0]]=1
+    for r in range(1,201,1):
+            k=r*w[1]/1000
+            sub={}
+            for i in range(0,k):
+                if sub.has_key(res[i][0]):
+                    sub[res[i][0]]+=1
+                else:
+                    sub[res[i][0]]=1
+            print w[0],float(k)/w[1],getError(gt,freq,sub,k)
+
+# countMapQualityMem(34635,34636)
+myPerceptualHash(106875,106876,'coord_sorted_tweets')
