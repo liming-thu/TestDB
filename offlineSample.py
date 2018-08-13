@@ -15,7 +15,7 @@ x0=-170.0
 x1=-60.0
 xStep=(x1-x0)/res_x
 
-conStr="dbname='postgres' user='postgres' host='169.234.57.197' password='liming' "
+conStr="dbname='postgres' user='postgres' host='169.234.49.169' password='liming' "
 conn=psycopg2.connect(conStr)
 cur=conn.cursor()
 
@@ -72,19 +72,28 @@ def fineSample(s,e):
                 cur.execute(sql)
             print res_x,x,res_y,y
     cur.execute('commit')
-def gridSample(k):
+def gridSample(k,offset=0):
     i=0
     j=0
     for x in range(0,res_x):
         for y in range(0,res_y):
+            tmpoffset=offset
             bottomleftX=x0+xStep*x
             bottomleftY=y0+yStep*y
             toprightX=x0+xStep*(x+1)
             toprightY=y0+yStep*(y+1)
             box="box '("+str(bottomleftX)+","+str(bottomleftY)+"),("+str(toprightX)+","+str(toprightY)+")'"
-            sql="insert into gridsample select * from coordtweets where "+box+"@>coordinate limit "+str(k)
-            cur.execute(sql)
-            # print res_x,x,res_y,y
+            sqlcnt="select count(*) from coordtweets where "+box+"@>coordinate"
+            cur.execute(sqlcnt)
+            cnt=cur.fetchall()
+            if cnt[0][0]<=k+offset:
+                tmpoffset=cnt[0][0]-k
+            if cnt[0][0]<=k:
+                tmpoffset=0
+            if cnt[0][0]>0:
+                sql="insert into gridsample select * from coordtweets where "+box+"@>coordinate offset "+str(tmpoffset)+" limit "+str(k)
+                cur.execute(sql)
+                print res_x,x,res_y,y,cnt[0][0],tmpoffset,k
     cur.execute('commit')
     print "Grid Sample: k="+str(k)
 def FindFirstIndexofKeyword(keyword):
@@ -231,12 +240,12 @@ def coarseSample(s,e):
             cur.execute(sql)
             print res_x,x,res_y,y
     cur.execute('commit')
-def createGridSample(k):
+def createGridSample(k,offset):
     cur.execute("delete from gridsample")
     # cur.execute("delete from tmpgridsample")
     cur.execute("commit")
     time1=time.time()
-    gridSample(k)
+    gridSample(k,offset)
     # cur.execute("insert into gridsample select * from tmpgridsample order by random()")
     # cur.execute("commit")
     time2=time.time()
@@ -267,41 +276,5 @@ def timeofkeyword(tab,keyword,k):
     t=time.time()
     cur.execute("select coordinate from "+tab+" where to_tsvector('english',text)@@to_tsquery('english','"+keyword+"') limit "+str(k))
     print tab,keyword,k,time.time()-t
-# createGridSample(10)
-# quality(400000,800000)
-k1k2(400000,4000000)
-# # timeofK('job')
-# timeofkeyword('coord_sorted_tweets','look',302241 )
-# timeofkeyword('coord_sorted_tweets','appli',391655 )
-# timeofkeyword('coord_sorted_tweets','recommend',403197 )
-# timeofkeyword('coord_sorted_tweets','anyon',414532 )
-# timeofkeyword('coord_sorted_tweets','fit',439006 )
-# timeofkeyword('coord_sorted_tweets','want',457859 )
-# timeofkeyword('coord_sorted_tweets','see',493643 )
-# timeofkeyword('coord_sorted_tweets','great',504732 )
-# timeofkeyword('coord_sorted_tweets','click',539074 )
-# timeofkeyword('coord_sorted_tweets','open',579143 )
-# timeofkeyword('coord_sorted_tweets','work',636155 )
-# timeofkeyword('coord_sorted_tweets','latest',603834 )
-# timeofkeyword('coord_sorted_tweets','careerarc',610305 )
-# timeofkeyword('coord_sorted_tweets','hire',25506 )
-# timeofkeyword('coord_sorted_tweets','job',27411 )
-# timeofkeyword('coordtweets','latest',237398)
-# timeofkeyword('coordtweets','careerarc',237280)
-# timeofkeyword('coordtweets','hire',420074)
-# timeofkeyword('coordtweets','job',472051)
-# ####
-# timeofkeyword('coordtweets','latest',47480)
-# timeofkeyword('coordtweets','careerarc',47935)
-# timeofkeyword('coordtweets','hire',560)
-# timeofkeyword('coordtweets','job',315)
-# ####
-# timeofkeyword('gridsample','latest',10338)
-# timeofkeyword('gridsample','careerarc',11113)
-# timeofkeyword('gridsample','hire',24946)
-# timeofkeyword('gridsample','job',27380)
-# ####
-# timeofkeyword('coordtweets','latest',57818)
-# timeofkeyword('coordtweets','careerarc',59048)
-# timeofkeyword('coordtweets','hire',25506)
-# timeofkeyword('coordtweets','job',27695)
+
+createGridSample(50,50)
