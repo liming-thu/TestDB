@@ -465,10 +465,12 @@ def kkk(s,e):
     online=list()
     offset0=list()
     offset50=list()
+    offsetalpha=list()
     for w in keywords:
-        online.append(BinarySearch(w[0],0.85,'coordtweets'))
-        offset0.append(BinarySearch(w[0],0.85,'coordtweets','gridsample0'))
-        offset50.append(BinarySearch(w[0],0.85,'coordtweets','gridsample'))
-        print w[0],w[1]
-    print online,offset0,offset50
+        online.append(BinarySearch(w[0],0.85,'coord_sorted_tweets'))
+        offset0.append(BinarySearch(w[0],0.85,'coord_sorted_tweets','gridsample0'))
+        offset50.append(BinarySearch(w[0],0.85,'coord_sorted_tweets','gridsample50'))
+        offsetalpha.append(BinarySearch(w[0],0.85,'coord_sorted_tweets','gridsample'))
+    for i in range(0,len(w)):
+        print w[i][0],w[i][1],online[i],offset0[i],offset50[i],offsetalpha[i]
 kkk(100000,1000000)
