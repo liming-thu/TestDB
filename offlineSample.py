@@ -72,9 +72,23 @@ def fineSample(s,e):
                 cur.execute(sql)
             print res_x,x,res_y,y
     cur.execute('commit')
-def gridSample(k,offset=0):
+def gridSample(k,offset=0,alpha=0):
     i=0
     j=0
+    maxd=0
+    for x in range(0,res_x):
+        for y in range(0,res_y):
+            bottomleftX=x0+xStep*x
+            bottomleftY=y0+yStep*y
+            toprightX=x0+xStep*(x+1)
+            toprightY=y0+yStep*(y+1)
+            box="box '("+str(bottomleftX)+","+str(bottomleftY)+"),("+str(toprightX)+","+str(toprightY)+")'"
+            sqlcnt="select count(*) from coordtweets where "+box+"@>coordinate"
+            cur.execute(sqlcnt)
+            cnt=cur.fetchall()
+            if cnt[0][0]>maxd:
+                maxd=cnt[0][0]
+    print "max density:",maxd
     for x in range(0,res_x):
         for y in range(0,res_y):
             tmpoffset=offset
@@ -86,14 +100,15 @@ def gridSample(k,offset=0):
             sqlcnt="select count(*) from coordtweets where "+box+"@>coordinate"
             cur.execute(sqlcnt)
             cnt=cur.fetchall()
-            if cnt[0][0]>=k:
-                tmpoffset=cnt[0][0]-k
+            tmpk=int(k*float(max(0,(maxd-alpha*cnt[0][0])))/maxd)
+            if cnt[0][0]>=tmpk:
+                tmpoffset=cnt[0][0]-tmpk
             else:
                 tmpoffset=0
             if cnt[0][0]>0:
-                sql="insert into gridsample select * from coordtweets where "+box+"@>coordinate offset "+str(tmpoffset)+" limit "+str(k)
+                sql="insert into gridsample select * from coordtweets where "+box+"@>coordinate offset "+str(tmpoffset)+" limit "+str(tmpk)
                 cur.execute(sql)
-                print res_x,x,res_y,y,cnt[0][0],tmpoffset,k
+                print res_x,x,res_y,y,cnt[0][0],tmpoffset,tmpk
     cur.execute('commit')
     print "Grid Sample: k="+str(k)
 def FindFirstIndexofKeyword(keyword):
@@ -240,14 +255,11 @@ def coarseSample(s,e):
             cur.execute(sql)
             print res_x,x,res_y,y
     cur.execute('commit')
-def createGridSample(k,offset):
+def createGridSample(k,offset=0,alpha=0):
     cur.execute("delete from gridsample")
-    # cur.execute("delete from tmpgridsample")
     cur.execute("commit")
     time1=time.time()
-    gridSample(k,offset)
-    # cur.execute("insert into gridsample select * from tmpgridsample order by random()")
-    # cur.execute("commit")
+    gridSample(k,offset,alpha)
     time2=time.time()
     print time2-time1
 def timeofK(keyword):
@@ -277,4 +289,4 @@ def timeofkeyword(tab,keyword,k):
     cur.execute("select coordinate from "+tab+" where to_tsvector('english',text)@@to_tsquery('english','"+keyword+"') limit "+str(k))
     print tab,keyword,k,time.time()-t
 
-createGridSample(50,50)
+createGridSample(60,50,5)
