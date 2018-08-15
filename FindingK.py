@@ -462,8 +462,13 @@ def countMapQualityMem(s,e):
             print w[0],float(k)/w[1],getError(gt,freq,sub,k)
 def kkk(s,e):
     keywords=GetKeywords('vectorcount',s,e,1000)
+    online=list()
+    offset0=list()
+    offset50=list()
     for w in keywords:
-        print w[0],w[1],'online',BinarySearch(w[0],0.85,'coordtweets')
-        print w[0],w[1],'offset0',BinarySearch(w[0],0.85,'coordtweets','gridsample0')
-        print w[0],w[1],'offset50',BinarySearch(w[0],0.85,'coordtweets','gridsample')
-kkk(20000,50000)
+        online.append(BinarySearch(w[0],0.85,'coordtweets'))
+        offset0.append(BinarySearch(w[0],0.85,'coordtweets','gridsample0'))
+        offset50.append(BinarySearch(w[0],0.85,'coordtweets','gridsample'))
+        print w[0],w[1]
+    print online,offset0,offset50
+kkk(100000,1000000)
