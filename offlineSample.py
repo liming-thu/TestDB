@@ -75,20 +75,9 @@ def fineSample(s,e):
 def gridSample(k,offset=0,alpha=0):
     i=0
     j=0
-    maxd=0
-    for x in range(0,res_x):
-        for y in range(0,res_y):
-            bottomleftX=x0+xStep*x
-            bottomleftY=y0+yStep*y
-            toprightX=x0+xStep*(x+1)
-            toprightY=y0+yStep*(y+1)
-            box="box '("+str(bottomleftX)+","+str(bottomleftY)+"),("+str(toprightX)+","+str(toprightY)+")'"
-            sqlcnt="select count(*) from coordtweets where "+box+"@>coordinate"
-            cur.execute(sqlcnt)
-            cnt=cur.fetchall()
-            if cnt[0][0]>maxd:
-                maxd=cnt[0][0]
-    print "max density:",maxd
+    #remove top m density cells
+    cur.execute("select coordinate[0],coordinate[1] from coordtweets limit "+str(alpha*100/10000000))
+    ar=np.array(cur.fetchall())
     for x in range(0,res_x):
         for y in range(0,res_y):
             tmpoffset=offset
@@ -289,4 +278,4 @@ def timeofkeyword(tab,keyword,k):
     cur.execute("select coordinate from "+tab+" where to_tsvector('english',text)@@to_tsquery('english','"+keyword+"') limit "+str(k))
     print tab,keyword,k,time.time()-t
 
-createGridSample(60,50,5)
+createGridSample(70,50,10)
