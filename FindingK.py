@@ -460,17 +460,16 @@ def countMapQualityMem(s,e):
                 else:
                     sub[res[i][0]]=1
             print w[0],float(k)/w[1],getError(gt,freq,sub,k)
-def kkk(s,e):
-    keywords=GetKeywords('vectorcount',s,e,1000)
-    online=list()
-    offset0=list()
-    offset50=list()
-    offsetalpha=list()
+def kkk(s,e,tb):
+    keywords=GetKeywords('vectorcount',s,e,100)
     for w in keywords:
-        online.append(BinarySearch(w[0],0.85,'coord_sorted_tweets'))
-        offset0.append(BinarySearch(w[0],0.85,'coord_sorted_tweets','gridsample0'))
-        offset50.append(BinarySearch(w[0],0.85,'coord_sorted_tweets','gridsample50'))
-        offsetalpha.append(BinarySearch(w[0],0.85,'coord_sorted_tweets','gridsample'))
-    for i in range(0,len(w)):
-        print w[i][0],w[i][1],online[i],offset0[i],offset50[i],offsetalpha[i]
-kkk(100000,1000000)
+        online=BinarySearch(w[0],0.85,tb)
+        # print 'stratified sampling'
+        offset0=(BinarySearch(w[0],0.85,tb,'gridsample0'))
+        # print 'stratified + offset'
+        offset50=(BinarySearch(w[0],0.85,tb,'gridsample50'))
+        # print 'stratified + offset + remove top n density cells'
+        offsetalpha=(BinarySearch(w[0],0.85,tb,'gridsample'))
+        if online>0:
+            print w[0],w[1],online,offset0,offset50,offsetalpha
+kkk(100000,1000000,'coord_sorted_tweets')
