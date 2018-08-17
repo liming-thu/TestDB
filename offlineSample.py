@@ -1,7 +1,8 @@
 import psycopg2
+import numpy as np
 import time
 import math
-import numpy as np
+import FindingK as fk
 
 granularity=4
 
@@ -16,7 +17,7 @@ x0=-170.0
 x1=-60.0
 xStep=(x1-x0)/res_x
 
-conStr="dbname='postgres' user='postgres' host='169.234.57.197' password='liming' "
+conStr="dbname='postgres' user='postgres' host='169.234.49.169' password='liming' "
 conn=psycopg2.connect(conStr)
 cur=conn.cursor()
 
@@ -73,19 +74,77 @@ def fineSample(s,e):
                 cur.execute(sql)
             print res_x,x,res_y,y
     cur.execute('commit')
-def gridSample(k):
+#remove top n cells
+def gridSampleTopCells(k,offset=0,alpha=0):
     i=0
     j=0
     for x in range(0,res_x):
         for y in range(0,res_y):
+            tmpoffset=offset
             bottomleftX=x0+xStep*x
             bottomleftY=y0+yStep*y
             toprightX=x0+xStep*(x+1)
             toprightY=y0+yStep*(y+1)
             box="box '("+str(bottomleftX)+","+str(bottomleftY)+"),("+str(toprightX)+","+str(toprightY)+")'"
-            sql="insert into gridsample select * from coordtweets where "+box+"@>coordinate limit "+str(k)
+            #remove top n cells
+            sql="select count(*) from biasedonepercent where "+box+"@>coordinate"
             cur.execute(sql)
-            # print res_x,x,res_y,y
+            cnt=cur.fetchall()[0][0]
+            if cnt>=k:
+                continue
+            else:
+                tmpk=k-cnt
+            sqlcnt="select count(*) from coordtweets where "+box+"@>coordinate"
+            cur.execute(sqlcnt)
+            cnt=cur.fetchall()
+            if cnt[0][0]>=tmpk:
+                tmpoffset=cnt[0][0]-tmpk
+            else:
+                tmpoffset=0
+            if cnt[0][0]>0:
+                sql="insert into gridsample select * from coordtweets where "+box+"@>coordinate offset "+str(tmpoffset)+" limit "+str(tmpk)
+                cur.execute(sql)
+                print res_x,x,res_y,y,cnt[0][0],tmpoffset,tmpk
+    cur.execute('commit')
+    print "Grid Sample: k="+str(k)
+def gridSample(k,offset=0,alpha=0):
+    i=0
+    j=0
+    dmax=399000
+    # for x in range(0,res_x):
+    #     for y in range(0,res_y):
+    #         tmpoffset=offset
+    #         bottomleftX=x0+xStep*x
+    #         bottomleftY=y0+yStep*y
+    #         toprightX=x0+xStep*(x+1)
+    #         toprightY=y0+yStep*(y+1)
+    #         box="box '("+str(bottomleftX)+","+str(bottomleftY)+"),("+str(toprightX)+","+str(toprightY)+")'"
+    #         sqlcnt="select count(*) from coordtweets where "+box+"@>coordinate"
+    #         cur.execute(sqlcnt)
+    #         cnt=cur.fetchall()
+    #         if cnt[0][0]>dmax:
+    #             dmax=cnt[0][0]
+    for x in range(0,res_x):
+        for y in range(0,res_y):
+            tmpoffset=offset
+            bottomleftX=x0+xStep*x
+            bottomleftY=y0+yStep*y
+            toprightX=x0+xStep*(x+1)
+            toprightY=y0+yStep*(y+1)
+            box="box '("+str(bottomleftX)+","+str(bottomleftY)+"),("+str(toprightX)+","+str(toprightY)+")'"
+            sqlcnt="select count(*) from coordtweets where "+box+"@>coordinate"
+            cur.execute(sqlcnt)
+            cnt=cur.fetchall()
+            if cnt[0][0]==0:
+                continue
+            tmpk=int(k*float(max(0,dmax-alpha*cnt[0][0]))/dmax)
+            if cnt[0][0]>=tmpk:
+                tmpoffset=cnt[0][0]-tmpk
+            else:
+                tmpoffset=0
+            sql="insert into gridsample select * from coordtweets where "+box+"@>coordinate offset "+str(tmpoffset)+" limit "+str(tmpk)
+            cur.execute(sql)
+            print res_x,x,res_y,y,cnt[0][0],tmpoffset,tmpk
     cur.execute('commit')
     print "Grid Sample: k="+str(k)
 def FindFirstIndexofKeyword(keyword):
@@ -107,108 +166,14 @@ def FindFirstIndexofKeyword(keyword):
                 cur.execute(sql)
                 result=cur.fetchall()
                 if result[0][0]:
-                    cur.execute("insert into firstindex values('"+keyword+"',"+str(x)+","+str(y)+","+str(i)+","+str(len(texts))+")")
-                    cur.execute("commit")
+                    found=True
                     break
-
-
-def imageHashFromCoordinates(coord):
-    pixel_x=(x1-x0)/res_x
-    pixel_y=(y1-y0)/res_y
-    image={}
-    for c in coord:
-        x=float(c[0])
-        y=float(c[1])
-        if y<y0 or y>y1 or x>x1 or x<x0:
-            continue
-        else:
-            index_x=int(math.floor((x-x0)/pixel_x))
-            index_y=int(math.floor((y-y0)/pixel_y))
-            key=str(index_x)+","+str(index_y)
-            if key not in image.keys():
-                image[key]=1
+            if found:
+                cur.execute("insert into firstindex values('"+keyword+"',"+str(x)+","+str(y)+","+str(i)+","+str(len(texts))+")")
             else:
-                image[key]+=1
-    return image
-def deltaImageHashFromCoordinates(coord,image):
-    pixel_x=(x1-x0)/res_x
-    pixel_y=(y1-y0)/res_y
-    deltaImage={}
-    for c in coord:
-        x=float(c[0])
-        y=float(c[1])
-        if y<y0 or y>y1 or x>x1 or x<x0:
-            continue
-        else:
-            index_x=int(math.floor((x-x0)/pixel_x))
-            index_y=int(math.floor((y-y0)/pixel_y))
-            key=str(index_x)+","+str(index_y)
-            if key not in image.keys():
-                deltaImage[key]=1
-    return deltaImage
-def unionQuality(s,e):
-    keywords=GetKeywords('vectorcount',s,e)
-    if len(keywords) > 0:
-        for keyword in keywords:
-            coord = GetCoordinate('coordtweets', keyword[0], -1)  # perfect image
-            if len(coord)<=0:#some stop words may have no returns
-                continue
-            perfectImage=imageHashFromCoordinates(coord)
-            perfectLen=len(perfectImage)
-            ##############################Offline Sample
-            coord2=GetCoordinate('gridsample',keyword[0],-1)#sample image
-            offlinesampleImage=imageHashFromCoordinates(coord2)
-            offlinesampleLen=len(offlinesampleImage)
-            ##############################Online Sample
-            for k in range(1,40):
-                coord3=coord[:k*len(coord)/100]
-                deltaImage=deltaImageHashFromCoordinates(coord3,offlinesampleImage)
-                onlinesampleLen=len(deltaImage)
-                similarity=float(offlinesampleLen+onlinesampleLen)/float(perfectLen)
-                print keyword[0],k,similarity
-                if similarity>0.85:
-                    break
-def k1k2(s,e):
-    keywords=GetKeywords('vectorcount',s,e)
-    for keyword in keywords:
-        coord1 = GetCoordinate('coordtweets', keyword[0], -1)  # perfect image
-        cur.execute("select len from keywordlen where keyword='"+keyword[0]+"'")
-        perfectImageLen=cur.fetchall()[0][0]
-        ##############################
-        ##############################Offline Sample
-        coord2=GetCoordinate('randomsample',keyword[0],-1)#sample image
-        ##############################Online Sample
-        for k1 in range(10,51):
-            sampleImage1=imageHashFromCoordinates(coord1[:int(k1*len(coord1)/100)])
-            similarity1=float(len(sampleImage1))/perfectImageLen
-            for k2 in range(100,101):
-                # sampleImage2=imageHashFromCoordinates(coord2[:len(coord2)*k2/100])
-                deltaImage=deltaImageHashFromCoordinates(coord2[:len(coord2)*k2/100],sampleImage1)
-                # similarity2=float(len(sampleImage2))/perfectImageLen
-                similarity=float(len(sampleImage1)+len(deltaImage))/perfectImageLen
-                # if similarity>0.85:
-                print keyword[0],k1,similarity1,similarity
-                    # break
-            # if similarity>0.85:
-            #     break
+                cur.execute("insert into firstindex values('"+keyword+"',"+str(x)+","+str(y)+","+str(0)+","+str(len(texts))+")")
+            cur.execute("commit")
 
-def quality(s,e):
-    start=int(s)
-    end=int(e)
-    keywords=GetKeywords('vectorcount',start,end)
-    if len(keywords) > 0:
-        for keyword in keywords:
-            coord = GetCoordinate('coordtweets', keyword[0], -1)  # perfect image
-            if len(coord)<=0:#some stop words may have no returns
-                continue
-            t1=time.time()
-            perfectImage=imageHashFromCoordinates(coord)
-            perfectLen=len(perfectImage)
-            coord2=GetCoordinate('gridsample',keyword[0],-1)#sample image
-            sampleImage=imageHashFromCoordinates(coord2)
-            sampleLen=len(sampleImage)
-            t2=time.time()
-            print keyword[0],float(sampleLen)/float(perfectLen),t2-t1
 def coarseSample(s,e):
     # keywords=GetKeywords('vectorcount',s,e)
     for x in range(0,res_x):
@@ -229,33 +194,22 @@ def coarseSample(s,e):
             cur.execute(sql)
             print res_x,x,res_y,y
     cur.execute('commit')
-def createGridSample(k):
+def createGridSample(k,offset=0,alpha=0):
     cur.execute("delete from gridsample")
-    # cur.execute("delete from tmpgridsample")
     cur.execute("commit")
     time1=time.time()
-    gridSample(k)
-    # cur.execute("insert into gridsample select * from tmpgridsample order by random()")
-    # cur.execute("commit")
+    gridSampleTopCells(k,offset,alpha)
     time2=time.time()
     print time2-time1
 def timeofK(keyword):
     for k1 in [0.4,0.5,0.6,0.7,0.8,0.9]:
         k=k1*3000000/100
-        # cur.execute("select * from tweets where to_tsvector('english',text)@@to_tsquery('english','job') limit 10000")
-        # cur.execute("set work_mem='64kB'")
-        # cur.execute("commit")
-        # cur.execute("set work_mem='2000MB'")
-        # cur.execute("commit")
         t=time.time()
         cur.execute("select coordinate[0],coordinate[1] from coordtweets where to_tsvector('english',text)@@to_tsquery('english','"+keyword+"') limit "+ str(k))
         cur.fetchall()
         print 'k1',k1,time.time()-t
     for k2 in range(1,99):
         k=k2*300000/100
-        # cur.execute("select * from tweets where to_tsvector('english',text)@@to_tsquery('english','job') limit 10000")
-        # cur.execute("set work_mem='64kB'")
-        # cur.execute("set work_mem='2000MB'")
         t=time.time()
         cur.execute("select coordinate[0],coordinate[1] from gridsample where to_tsvector('english',text)@@to_tsquery('english','"+keyword+"') limit "+ str(k))
         cur.fetchall()
@@ -265,13 +219,6 @@ def timeofkeyword(tab,keyword,k):
     t=time.time()
     cur.execute("select coordinate from "+tab+" where to_tsvector('english',text)@@to_tsquery('english','"+keyword+"') limit "+str(k))
     print tab,keyword,k,time.time()-t
-def checkSubsetofLIMIT():
-    perfectImage=imageHashFromCoordinates(GetCoordinate('coordtweets','job',4000000))
-# createGridSample(10)
-# quality(400000,800000)
-# k1k2(400000,4000000)
-# FindFirstIndexofKeyword('network')
-# FindFirstIndexofKeyword('sit')
-# FindFirstIndexofKeyword('key')
-# FindFirstIndexofKeyword('human')
-checkSubsetofLIMIT()
+
+# createGridSample(70,50,10)#random dataset
+createGridSample(55,50,10)
