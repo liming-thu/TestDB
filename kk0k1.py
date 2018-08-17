@@ -2,7 +2,7 @@
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import numpy as np
-import FindingK as fk
+import LIMITlib as fk
 import seaborn
 def DrawImage():
     # seaborn.set()
@@ -12,10 +12,6 @@ def DrawImage():
     k1=[0.78,0.10]
     k0=[0.40,0.57]
     plt.ylim(0,3.3)
-    # k=[237.4,472.0]
-    # k1=[47.5,0.32]
-    # k0=[10.3,27.7]
-    # plt.ylim(0,550)
     x=list(range(len(wlist)))
     total_width,n=0.9,3
     width=total_width/n

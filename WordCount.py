@@ -3,9 +3,14 @@ from nltk.corpus import stopwords
 from os import listdir
 from collections import OrderedDict
 import re
+
+
+
+#Do word count using the interface provided by postgresql, the nltk.download in the first two lines only need to be run once.
+
+
 # nltk.download('stopwords')
 # nltk.download('punkt')
-
 stop_words=set(stopwords.words("english"))
 stop_words=stop_words.union({u'http', u'https' ,u'www' ,u'_',u'.',u'/','?',';','<','>',':','"','[',']','{','}','!','~','`','@','#','$','%','^','&','*','(',')','-','+','=','\\','|'})
 porter=nltk.PorterStemmer()

@@ -1,7 +1,7 @@
 ### the executiom itme when increasing k, plan change
 import matplotlib.pyplot as plt
 import numpy as np
-import FindingK as fk
+import LIMITlib as fk
 def DrawImage(ar):
     x=np.arange(1,101,5,dtype=int)
 
