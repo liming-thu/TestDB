@@ -1,7 +1,4 @@
 import psycopg2
-import cv2 as cv
-import matplotlib.pyplot as plt
-import os
 import time
 import math
 import numpy as np
@@ -19,7 +16,7 @@ x1 = -60.0
 yStep=(y1-y0)/res_y
 xStep=(x1-x0)/res_x
 
-conStr = "dbname='postgres' user='postgres' host='169.234.49.169' password='liming' "
+conStr = "dbname='postgres' user='postgres' host='192.168.137.1' password='liming' "
 conn = psycopg2.connect(conStr)
 cur = conn.cursor()
 
@@ -77,7 +74,7 @@ def findkofQ(ar, Q):
     return i
 
 #Find the k of hybrid queries, w:keyword, q:quality, tb: original data table, hybridtab: offline sample table
-def kOfHybridQueries(w, q, tb, hybridtab='null'):
+def kOfHybridQueries(w, q, tb,hybridtab='null'):
     coord = GetCoordinate(tb, w, -1)
     if len(coord) < 5000:
         return 0
@@ -94,7 +91,7 @@ def kOfHybridQueries(w, q, tb, hybridtab='null'):
     similarity = 0.0
     iterTimes = 0
     #binary search of k for quality q, max iteration times is 20
-    while (similarity < q or similarity > q * 1.05) and iterTimes < 20:
+    while (similarity < q or similarity > q * 1.01) and iterTimes < 20:
         if similarity < q:
             l = i
             i = (h + i) / 2
@@ -296,9 +293,10 @@ def stratifiedSampling(k,alpha=0):
 
 #k: the threshold of #records for each cell
 #refTab: the table created by using LIMIT k of original datatable without contains keyword.
-def gridSampleTopCells(k,refTab):
-    i=0
-    j=0
+def gridSampleTopCells(k,refTab,smpTab):
+    cur.execute("create table if not exists "+smpTab+" as select * from tweets where 1=2")
+    cur.execute("commit")
+    totaltime=0
     for x in range(0,res_x):
         for y in range(0,res_y):
             tmpoffset=0
@@ -315,16 +313,19 @@ def gridSampleTopCells(k,refTab):
                 continue
             else:
                 tmpk=k-cnt
-            sqlcnt="select count(*) from coordtweets where "+box+"@>coordinate"
-            cur.execute(sqlcnt)
-            cnt=cur.fetchall()
-            if cnt[0][0]>=tmpk:
-                tmpoffset=cnt[0][0]-tmpk
-            else:
-                tmpoffset=0
-            if cnt[0][0]>0:
-                sql="insert into gridsample select * from coordtweets where "+box+"@>coordinate offset "+str(tmpoffset)+" limit "+str(tmpk)
-                cur.execute(sql)
-                print res_x,x,res_y,y,cnt[0][0],tmpoffset,tmpk
+            # sqlcnt="select count(*) from tweets where "+box+"@>coordinate"
+            # cur.execute(sqlcnt)
+            # cnt=cur.fetchall()
+            # if cnt[0][0]>=tmpk:
+            #     tmpoffset=cnt[0][0]-tmpk
+            # else:
+            #     tmpoffset=0
+            # if cnt[0][0]>0:
+            t1=time.time()
+            sql="insert into "+smpTab+" select * from tweets where "+box+"@>coordinate offset "+str(cnt)+" limit "+str(tmpk)##str(tmpoffset)
+            cur.execute(sql)
+            t2=time.time()
+            print res_x,x,res_y,y,cnt,tmpk
+            totaltime+=t2-t1
     cur.execute('commit')
-    print "Grid Sample: k="+str(k)
+    print "Grid Sample: k="+str(k)+", net time:"+str(totaltime)
