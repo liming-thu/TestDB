@@ -108,15 +108,14 @@ def kOfHybridQueries(w, q, tb,hybridtab='null'):
     return k
 
 #fine the trend of k when scaling ataset
-def ScaleDataSize():
-    for w in ['soccer', 'beach', 'love']:
-        coord = GetCoordinate('coordtweets', w, -1)
-        print w, len(coord)
+def ScaleDataSize(kwList,tab):
+    for w in kwList:
+        coord = GetCoordinate(tab, w, -1)
         for s in range(10, 101, 10):
             size = s * len(coord) / 100
             scoord = coord[:size]
             r = findkofQ(scoord, 0.85)
-            print size, r * size
+            print w, 'dataset size:',size,'85% quality:',r * size/100
 
 #Load state polygons to db from file
 def loadStatePolygon():
