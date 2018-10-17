@@ -52,6 +52,14 @@ def hashByNumpy(ar, r=((-170, -60), (15, 70))):
 def imageLen(array):
     return np.count_nonzero(hashByNumpy(array))
 
+# return the mse of two matrix
+def myMSE(m1,m2, binary=True):#m1, m2 are the matrixs of the ground-truth map and approximate map
+    if binary:
+        m1=np.where(m1>0,1,0) #convert each element to 0 or 1
+        m2=np.where(m2>0,1,0) #convert each element to 0 or 1
+    err=np.sum((m1-m2)**2)
+    err/=float(len(m1)*len(m1[0]))
+    return err
 #Use binary search to find the k that have quality Q in coordinate ar.
 def findkofQ(ar, Q):
     perfectLen = imageLen(np.array(ar))
@@ -289,6 +297,14 @@ def stratifiedSampling(k,alpha=0):
             print res_x,x,res_y,y,cnt[0][0],tmpoffset,tmpk
     cur.execute('commit')
     print "Grid Sample: k="+str(k)
+def Curves(w,tab):
+    coord=GetCoordinate(tab,w)
+    print w,len(coord)
+    perfectImageLen=imageLen(np.array(coord))
+    for r in range(10,100,10):
+        subLen=int(float(r)*len(coord)/100.0)
+        aprxImageLen=imageLen(np.array(coord[:subLen]))
+        print r,float(aprxImageLen)/perfectImageLen
 
 #k: the threshold of #records for each cell
 #refTab: the table created by using LIMIT k of original datatable without contains keyword.
