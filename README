@@ -10,3 +10,6 @@
 6. npVAS.py: implemented VAS in numpy, a popular python package.
 7. myMSE.py and myEMD.py: implemmented the two algorithms of comparing the similarity of two images.
 9. ReqDB.py: send qureis to AsterixDB.
+10. k.txt: a sample file of  'KofQueries' and used by 'getExeTime'. 
+There are six fields: original data table, keyword, k1, sample data table,k0, quality. The first function output this file, and the second
+function take it as input to evaluate the execution time of each query.
