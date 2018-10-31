@@ -5,4 +5,8 @@
     b). twitter2: id, text, x,y
     c). yelp: id, reviews, coordinate
     d). uber: datetime, x, y, base
-4. All of the interfaces are in LIMITlib.py, please see the comments at the begin of each function.
+4. LIMITlib.py: most of the interfaces used in the experiments. Please see the comments of each function.
+5. VAS.py: implemented two methods of VAS, points from data file and points in database.
+6. npVAS.py: implemented VAS in numpy, a popular python package.
+7. myMSE.py and myEMD.py: implemmented the two algorithms of comparing the similarity of two images.
+9. ReqDB.py: send qureis to AsterixDB.
