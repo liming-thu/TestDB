@@ -4,18 +4,27 @@ import math
 import numpy as np
 import sys
 import os
+import demjson
 
 res_x = 1920 / 4
 res_y = 1080 / 4
 
-y0 = 39.65
-y1 = 42.12
+#coordinates of New York
+y0_ny = 39.65
+y1_ny = 42.12
 
-x0 = -74.95
-x1 = -72.0
+x0_ny = -74.95
+x1_ny = -72.0
+
+y0 = 15.0
+y1 = 70.0
+
+x0 = -170.0
+x1 = -60.0
 
 yStep=(y1-y0)/res_y
 xStep=(x1-x0)/res_x
+
 
 #postgresql connection
 conStr = "dbname='limitdb2' user='postgres' host='localhost' password='postgres' "
@@ -49,6 +58,7 @@ def restart(version=9.6):
                 i += 1
         if i > 10:
             raise psycopg2.DatabaseError
+
 # Return the coordinate of keyword from table tb, if limit is -1, then return all the records, order by is the id of the table.
 def GetCoordinate(tb, keyword, limit=-1, orderby=False):
     conn = psycopg2.connect(conStr)
@@ -79,6 +89,10 @@ def GetCoordinateUber(tb, base, limit=-1, orderby=False):
     conn = psycopg2.connect(conStr)
     cur = conn.cursor()
     sql = "select y,x from " + tb + " where base='"+base+"'"
+    if limit >= 0:
+        sql = " select coordinate[0],coordinate[1] from " + tb + " where to_tsvector('english',text)@@to_tsquery('english','" + keyword + "')"
+    if orderby:
+        sql += " order by id"
     if limit >= 0:
         sql += " limit " + str(limit)
     cur.execute(sql)
@@ -544,3 +558,4 @@ def CountBlocks(dataset,keyword,k1,smpTab,k0):
         lines=lmt.cur.fetchall()
         blocks2=lines[5]
     print blocks1,blocks2
+    print "Grid Sample: k="+str(k)+", net time:"+str(totaltime)
