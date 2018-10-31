@@ -1,0 +1,8 @@
+coord_tweets_sorted veteran 5370025 null 0 1
+coord_tweets_sorted veteran 4058983 null 0 1
+coord_tweets_sorted veteran 3314312 rnd1 53824 0.85
+coord_tweets_sorted veteran 3020639 rnd3 161420 0.85
+coord_tweets_sorted veteran 2852825 rnd5 267560 0.85
+coord_tweets_sorted veteran 3607985 grid1 25157 0.85
+coord_tweets_sorted veteran 1678132 grid3 97291 0.85
+coord_tweets_sorted veteran 5 grid5 201342 0.85

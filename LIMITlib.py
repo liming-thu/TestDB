@@ -2,10 +2,19 @@ import psycopg2
 import time
 import math
 import numpy as np
+import sys
+import os
 import demjson
 
 res_x = 1920 / 4
 res_y = 1080 / 4
+
+#coordinates of New York
+y0_ny = 39.65
+y1_ny = 42.12
+
+x0_ny = -74.95
+x1_ny = -72.0
 
 y0 = 15.0
 y1 = 70.0
@@ -16,23 +25,78 @@ x1 = -60.0
 yStep=(y1-y0)/res_y
 xStep=(x1-x0)/res_x
 
-conStr = "dbname='postgres' user='postgres' host='192.168.137.1' password='liming' "
+
+#postgresql connection
+conStr = "dbname='limitdb2' user='postgres' host='localhost' password='postgres' "
 conn = psycopg2.connect(conStr)
 cur = conn.cursor()
 
+#oracle connection
+ora_conn=cx_Oracle.connect("system","Oracle123","curium.ics.uci.edu:1521/orcl")
+ora_cur=ora_conn.cursor()
+
+def restart(version=9.6):
+        if sys.platform == 'darwin':
+            os.system('brew services stop postgresql')
+            os.system('brew services start postgresql')
+        elif sys.platform == 'linux2':
+            if version >= 9.5:
+                print 'sudo systemctl restart postgresql-' + str(version)
+                os.system('sudo systemctl restart postgresql-' + str(version))
+            else:
+                os.system('sudo systemctl restart postgresql')
+
+        i = 0
+        while i <= 10:
+            try:
+                conn = psycopg2.connect(conStr)
+                cur = conn.cursor()
+                break
+            except psycopg2.DatabaseError:
+                print 'wait 1s for db restarting ... ...'
+                time.sleep(1)
+                i += 1
+        if i > 10:
+            raise psycopg2.DatabaseError
 
 # Return the coordinate of keyword from table tb, if limit is -1, then return all the records, order by is the id of the table.
 def GetCoordinate(tb, keyword, limit=-1, orderby=False):
     conn = psycopg2.connect(conStr)
     cur = conn.cursor()
-    sql = " select coordinate[0],coordinate[1] from " + tb + " where to_tsvector('english',text)@@to_tsquery('english','" + keyword + "')"
+    sql = "select count(*) from information_schema.columns where table_name='"+tb+"' and column_name='coordinate'"
+    cur.execute(sql)
+    hasPoint=cur.fetchall()[0][0]
+    if int(hasPoint) == 1:
+        sql = " select coordinate[0],coordinate[1] from " + tb + " where to_tsvector('english',text)@@to_tsquery('english','" + keyword + "')"
+    else:
+        sql = "select x,y from " + tb + " where to_tsvector('english',text)@@to_tsquery('english','"+keyword+"')"
     if orderby:
         sql += " order by id"
     if limit >= 0:
         sql += " limit " + str(limit)
     cur.execute(sql)
     return cur.fetchall()
-
+# get coordinates from oracle
+def GetCoordinateOra(tb, keyword, limit=-1, orderby=False):
+    sql = "select x,y from " + tb + " where contains(text,'"+keyword+"')>0"
+    if orderby:
+        sql += " order by id"
+    if limit >= 0:
+        sql += " where rownum>= " + str(limit)
+    ora_cur.execute(sql)
+    return ora_cur.fetchall()
+def GetCoordinateUber(tb, base, limit=-1, orderby=False):
+    conn = psycopg2.connect(conStr)
+    cur = conn.cursor()
+    sql = "select y,x from " + tb + " where base='"+base+"'"
+    if limit >= 0:
+        sql = " select coordinate[0],coordinate[1] from " + tb + " where to_tsvector('english',text)@@to_tsquery('english','" + keyword + "')"
+    if orderby:
+        sql += " order by id"
+    if limit >= 0:
+        sql += " limit " + str(limit)
+    cur.execute(sql)
+    return cur.fetchall()
 
 # Return the keywords in table tb, the lower and upper are the frequency bounds, k is the limit number of returned keywords.
 def GetKeywords(tb, lower, upper, k):
@@ -114,7 +178,71 @@ def kOfHybridQueries(w, q, tb,hybridtab='null'):
         similarity = float(sampleLen) / perfectLen
         iterTimes += 1
     return k
-
+def kOfHybridQueriesUber(w, q, tb,hybridtab='null'):
+    coord = GetCoordinateUber(tb, w, -1)
+    if len(coord) < 5000:
+        return 0
+    offlineHs = np.zeros(shape=(480, 270), dtype=int)
+    if hybridtab is not 'null':
+        offlinecoord = GetCoordinateUber(hybridtab, w, -1)
+        offlineHs = hashByNumpy(np.array(offlinecoord))
+    ar = np.array(coord)
+    H = hashByNumpy(ar)#matrix of from the original data table
+    perfectLen = np.count_nonzero(H)
+    i = 0.0
+    l = 0.0
+    h = 100.0
+    similarity = 0.0
+    iterTimes = 0
+    #binary search of k for quality q, max iteration times is 20
+    while (similarity < q or similarity > q * 1.01) and iterTimes < 20:
+        if similarity < q:
+            l = i
+            i = (h + i) / 2
+        else:
+            h = i
+            i = (i + l) / 2
+        k = int(i * len(ar) / 100)
+        Hs = hashByNumpy(ar[:k])
+        if hybridtab is not 'null':#combine the online subset with the offline subset
+            Hs += offlineHs
+        sampleLen = np.count_nonzero(Hs)
+        similarity = float(sampleLen) / perfectLen
+        iterTimes += 1
+    return k
+# find k of hybird queries in oracle, the only difference is call of GetCoordinate
+def kOfHybridQueriesOra(w, q, tb,hybridtab='null'):
+    coord = GetCoordinateOra(tb, w, -1)
+    if len(coord) < 5000:
+        return 0
+    offlineHs = np.zeros(shape=(480, 270), dtype=int)
+    if hybridtab is not 'null':
+        offlinecoord = GetCoordinateOra(hybridtab, w, -1)
+        offlineHs = hashByNumpy(np.array(offlinecoord))
+    ar = np.array(coord)
+    H = hashByNumpy(ar)#matrix of from the original data table
+    perfectLen = np.count_nonzero(H)
+    i = 0.0
+    l = 0.0
+    h = 100.0
+    similarity = 0.0
+    iterTimes = 0
+    #binary search of k for quality q, max iteration times is 20
+    while (similarity < q or similarity > q * 1.01) and iterTimes < 20:
+        if similarity < q:
+            l = i
+            i = (h + i) / 2
+        else:
+            h = i
+            i = (i + l) / 2
+        k = int(i * len(ar) / 100)
+        Hs = hashByNumpy(ar[:k])
+        if hybridtab is not 'null':#combine the online subset with the offline subset
+            Hs += offlineHs
+        sampleLen = np.count_nonzero(Hs)
+        similarity = float(sampleLen) / perfectLen
+        iterTimes += 1
+    return k
 #fine the trend of k when scaling ataset
 def ScaleDataSize(kwList,tab):
     for w in kwList:
@@ -297,6 +425,7 @@ def stratifiedSampling(k,alpha=0):
             print res_x,x,res_y,y,cnt[0][0],tmpoffset,tmpk
     cur.execute('commit')
     print "Grid Sample: k="+str(k)
+# Get curves of keyword w in table tab, start k=10%, end k=90%
 def Curves(w,tab):
     coord=GetCoordinate(tab,w)
     print w,len(coord)
@@ -308,7 +437,7 @@ def Curves(w,tab):
 
 #k: the threshold of #records for each cell
 #refTab: the table created by using LIMIT k of original datatable without contains keyword.
-def gridSampleTopCells(k,refTab,smpTab):
+def gridSampleTopCells(k,refTab,smpTab,srcTab):
     cur.execute("create table if not exists "+smpTab+" as select * from tweets where 1=2")
     cur.execute("commit")
     totaltime=0
@@ -337,10 +466,96 @@ def gridSampleTopCells(k,refTab,smpTab):
             #     tmpoffset=0
             # if cnt[0][0]>0:
             t1=time.time()
-            sql="insert into "+smpTab+" select * from tweets where "+box+"@>coordinate offset "+str(cnt)+" limit "+str(tmpk)##str(tmpoffset)
+            sql="insert into "+smpTab+" select * from "+srcTab+" where "+box+"@>coordinate offset "+str(cnt)+" limit "+str(tmpk)##str(tmpoffset)
             cur.execute(sql)
             t2=time.time()
             print res_x,x,res_y,y,cnt,tmpk
             totaltime+=t2-t1
     cur.execute('commit')
+    print "Grid Sample: k="+str(k)+", net time:"+str(totaltime)
+    
+# using the random function to get a random sample for each cell.
+def gridSampleRandomFunction():
+    cur.execute("create table if not exists vas_ss3 as select * from tweets where 1=2")
+    cur.execute("commit")
+    totaltime=0
+    for x in range(0,res_x):
+        for y in range(0,res_y):
+            tmpoffset=0
+            bottomleftX=x0+xStep*x
+            bottomleftY=y0+yStep*y
+            toprightX=x0+xStep*(x+1)
+            toprightY=y0+yStep*(y+1)
+            box="box '("+str(bottomleftX)+","+str(bottomleftY)+"),("+str(toprightX)+","+str(toprightY)+")'"
+            #remove top n cells
+            sql="select count(*) from ss3 where "+box+"@>coordinate"
+            cur.execute(sql)
+            cnt=cur.fetchall()[0][0]
+            if cnt==0:
+                continue
+            print x,y
+            sql="select count(*) from rnd5 where "+box+"@>coordinate"
+            cur.execute(sql)
+            cnt2=cur.fetchall()[0][0]
+            r=float(cnt)/float(cnt2)
+            sql="insert into vas_ss3 select * from rnd5 where "+box+"@>coordinate and random()<="+str(r)
+            cur.execute(sql)
+    cur.execute('commit')
+    print "Grid Sample: k="+str(k)+", net time:"+str(totaltime)
+#get k of original, offline sample. tab is the original data table, ss is the sample lsit, wlist is the keyword list, quality is the specified quality
+def KofQueries(tab,ss,wlist,quality):
+    kwList=wlist##freq: 50k,500k,1M,2M
+    stratSampleList=[ss]
+    origTab=tab
+    for kw in kwList:
+        ##A. Original query, get the number of all records that contain the keyword, and time
+        freq=len(lmt.GetCoordinate(origTab,kw,-1))
+        print tab,kw,freq,'null','0','1'
+
+        ##B. Online sampling (LIMIT K), get the number of records of quality=quality, and time
+        for q in quality:
+            k=lmt.kOfHybridQueries(kw,q,origTab)
+            print tab,kw,k,'null','0',q
+
+            ##C. Online sampling + Offline sampling
+            for smp in stratSampleList:
+                k0=len(lmt.GetCoordinate(smp, kw, -1))## #records in offline sample
+                k1=lmt.kOfHybridQueries(kw,q,origTab,smp)
+                print tab,kw,k1,smp,k0,q
+                
+# get execution time of keyword on table. dataset is the original data table, k1 is the k of original data table, smpTab is the sample table, k0 is the k of sample table.
+def getExeTime(dataset,keyword,k1,smpTab,k0):
+    limitSQL="select * from "+dataset+" where to_tsvector('english',text)@@to_tsquery('english','"+keyword+"') limit "+k1
+    sampleSQL="select * from "+smpTab+" where to_tsvector('english',text)@@to_tsquery('english','"+keyword+"') limit "+k0
+    dummySQL="select count(*) from (select x,y from dummy_table) a"
+    dummySQL2="select count(*) from coord_tweets where to_tsvector('english',text)@@to_tsquery('english','veteran')"
+    limitT=0.0
+    sampleT=0.0
+    for i in range(1,3):
+        #lmt.restart()
+        lmt.cur.execute(dummySQL)
+        lmt.cur.execute(dummySQL2)
+        ts=time.time()
+        lmt.cur.execute(limitSQL)
+        te=time.time()
+        limitT+=te-ts
+        if smpTab!='null':
+            ts=time.time()
+            lmt.cur.execute(sampleSQL)
+            te=time.time()
+            sampleT+=te-ts
+    return limitT/2.0,sampleT/2.0
+# get the accessed blocks of a query in postgresql.
+def CountBlocks(dataset,keyword,k1,smpTab,k0):
+    explainSQL="explain(analyze,buffers) "+"select * from "+dataset+" where to_tsvector('english',text)@@to_tsquery('english','"+keyword+"') limit "+k1
+    explainSQL2="explain(analyze,buffers) "+"select * from "+smpTab+" where to_tsvector('english',text)@@to_tsquery('english','"+keyword+"') limit "+k0
+    lmt.cur.execute(explainSQL)
+    lines=lmt.cur.fetchall()
+    blocks2=""
+    blocks1=lines[5]
+    if smpTab!='null':
+        lmt.cur.execute(explainSQL2)
+        lines=lmt.cur.fetchall()
+        blocks2=lines[5]
+    print blocks1,blocks2
     print "Grid Sample: k="+str(k)+", net time:"+str(totaltime)
