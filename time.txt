@@ -1,0 +1,87 @@
+select * from coord_tweets_point where to_tsvector('english',text)@@to_tsquery('english','soccer') limit 56264
+19.7939190865
+select * from coord_tweets_point where to_tsvector('english',text)@@to_tsquery('english','soccer') limit 56264
+24.0950708389
+select * from coord_tweets_point where to_tsvector('english',text)@@to_tsquery('english','soccer') limit 56264
+4.10542082787
+select * from coord_tweets_point where to_tsvector('english',text)@@to_tsquery('english','soccer') limit 56264
+13.7881429195
+select * from coord_tweets_point where to_tsvector('english',text)@@to_tsquery('english','soccer') limit 56264
+20.1447679996
+(16.385464334487914, 0.0)
+select * from coord_tweets_point where to_tsvector('english',text)@@to_tsquery('english','soccer') limit 54324
+20.4338951111
+select * from coord_tweets_point where to_tsvector('english',text)@@to_tsquery('english','soccer') limit 54324
+3.96147418022
+select * from coord_tweets_point where to_tsvector('english',text)@@to_tsquery('english','soccer') limit 54324
+20.5847570896
+select * from coord_tweets_point where to_tsvector('english',text)@@to_tsquery('english','soccer') limit 54324
+22.7035601139
+select * from coord_tweets_point where to_tsvector('english',text)@@to_tsquery('english','soccer') limit 54324
+26.0655798912
+(18.74985327720642, 0.5632732391357422)
+None
+None
+select * from coord_tweets_point where to_tsvector('english',text)@@to_tsquery('english','soccer') limit 46564
+21.1488490105
+select * from coord_tweets_point where to_tsvector('english',text)@@to_tsquery('english','soccer') limit 46564
+17.0826919079
+select * from coord_tweets_point where to_tsvector('english',text)@@to_tsquery('english','soccer') limit 46564
+19.0716180801
+select * from coord_tweets_point where to_tsvector('english',text)@@to_tsquery('english','soccer') limit 46564
+18.6940710545
+select * from coord_tweets_point where to_tsvector('english',text)@@to_tsquery('english','soccer') limit 46564
+7.65107607841
+(16.729661226272583, 0.24402179718017578)
+None
+None
+select * from coord_tweets_point where to_tsvector('english',text)@@to_tsquery('english','soccer') limit 85367
+30.7680380344
+select * from coord_tweets_point where to_tsvector('english',text)@@to_tsquery('english','soccer') limit 85367
+45.5919010639
+select * from coord_tweets_point where to_tsvector('english',text)@@to_tsquery('english','soccer') limit 85367
+65.6321020126
+select * from coord_tweets_point where to_tsvector('english',text)@@to_tsquery('english','soccer') limit 85367
+38.8173518181
+select * from coord_tweets_point where to_tsvector('english',text)@@to_tsquery('english','soccer') limit 85367
+6.67565202713
+(37.49700899124146, 0.0)
+select * from coord_tweets_point where to_tsvector('english',text)@@to_tsquery('english','soccer') limit 85367
+33.2274119854
+select * from coord_tweets_point where to_tsvector('english',text)@@to_tsquery('english','soccer') limit 85367
+35.7145659924
+select * from coord_tweets_point where to_tsvector('english',text)@@to_tsquery('english','soccer') limit 85367
+37.6785929203
+select * from coord_tweets_point where to_tsvector('english',text)@@to_tsquery('english','soccer') limit 85367
+6.37695288658
+select * from coord_tweets_point where to_tsvector('english',text)@@to_tsquery('english','soccer') limit 85367
+34.7108597755
+(29.541676712036132, 0.6039669990539551)
+None
+None
+select * from coord_tweets_point where to_tsvector('english',text)@@to_tsquery('english','soccer') limit 79547
+30.8352479935
+select * from coord_tweets_point where to_tsvector('english',text)@@to_tsquery('english','soccer') limit 79547
+34.4948310852
+select * from coord_tweets_point where to_tsvector('english',text)@@to_tsquery('english','soccer') limit 79547
+9.38417410851
+select * from coord_tweets_point where to_tsvector('english',text)@@to_tsquery('english','soccer') limit 79547
+27.4344489574
+select * from coord_tweets_point where to_tsvector('english',text)@@to_tsquery('english','soccer') limit 79547
+29.9912481308
+(26.42799005508423, 0.47858781814575196)
+None
+None
+select * from coord_tweets_point where to_tsvector('english',text)@@to_tsquery('english','soccer') limit 104769
+42.4109950066
+select * from coord_tweets_point where to_tsvector('english',text)@@to_tsquery('english','soccer') limit 104769
+37.0447130203
+select * from coord_tweets_point where to_tsvector('english',text)@@to_tsquery('english','soccer') limit 104769
+27.3671250343
+select * from coord_tweets_point where to_tsvector('english',text)@@to_tsquery('english','soccer') limit 104769
+31.9377589226
+select * from coord_tweets_point where to_tsvector('english',text)@@to_tsquery('english','soccer') limit 104769
+45.4667570591
+(36.84546980857849, 0.0)
+select * from coord_tweets_point where to_tsvector('english',text)@@to_tsquery('english','soccer') limit 104769
+47.521476984
