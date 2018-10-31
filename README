@@ -1,0 +1,8 @@
+1. Python version: 2.7
+2. Database version: PostgreSQL 9.6+, Oracle 11.2+
+3. Database schema:
+    a). twitter1: id, text, coordinate
+    b). twitter2: id, text, x,y
+    c). yelp: id, reviews, coordinate
+    d). uber: datetime, x, y, base
+4. All of the interfaces are in LIMITlib.py, please see the comments at the begin of each function.
